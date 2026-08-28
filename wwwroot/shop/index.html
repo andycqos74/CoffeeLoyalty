@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#094582">
+<link rel="manifest" href="/shop/manifest.json">
+<title>Till — QOSFC Loyalty</title>
+<style>
+  :root { --brown:#094582; --cream:#f0f4fa; --accent:#1a6abf; --green:#2e8b57; --red:#c0392b; }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,-apple-system,sans-serif; background:var(--brown); color:#fff;
+         margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:16px; }
+  h1 { font-size:1.1rem; margin:4px 0 16px; letter-spacing:.05em; }
+  .panel { background:#fff; color:#222; border-radius:16px; padding:20px; width:100%; max-width:420px; }
+  .hidden { display:none !important; }
+  input, select { width:100%; padding:14px; font-size:1.2rem; border:1px solid #ddd; border-radius:10px;
+          margin-bottom:12px; }
+  button { width:100%; padding:16px; font-size:1.05rem; font-weight:700; border:none; border-radius:10px;
+           cursor:pointer; margin-bottom:8px; }
+  .primary { background:var(--brown); color:#fff; }
+  .green { background:var(--green); color:#fff; }
+  .grey { background:#eee; color:#444; }
+  video { width:100%; border-radius:12px; background:#000; }
+  .scanline { position:relative; }
+  .cust { text-align:center; margin-bottom:12px; }
+  .cust .nm { font-size:1.3rem; font-weight:700; color:var(--brown); }
+  .cust .pt { font-size:2.2rem; font-weight:800; color:var(--accent); }
+  .cust .pt small { font-size:1rem; color:#999; font-weight:400; }
+  .msg { text-align:center; padding:10px; border-radius:10px; margin-bottom:12px; font-weight:600; }
+  .msg.ok { background:#e8f6ee; color:var(--green); }
+  .msg.err { background:#fdecea; color:var(--red); }
+  .bigresult { text-align:center; padding:24px 12px; }
+  .bigresult .icon { font-size:3rem; }
+  .bigresult .headline { font-size:1.3rem; font-weight:800; color:var(--brown); margin:8px 0; }
+  .bigresult .sub { color:#666; }
+  .discount { background:#fff7e0; border:2px dashed var(--accent); border-radius:12px; padding:14px;
+              margin:14px 0; font-weight:700; color:#8a5a00; }
+  .reward-btn { background:#eaf1fb; color:var(--brown); text-align:left; display:flex;
+                justify-content:space-between; font-weight:600; }
+  .reward-btn:disabled { opacity:.45; }
+  .topbar { width:100%; max-width:420px; display:flex; justify-content:space-between; align-items:center; }
+  .topbar button { width:auto; padding:6px 12px; font-size:.8rem; background:rgba(255,255,255,.15);
+                   color:#fff; margin:0; }
+  label { font-size:.85rem; color:#666; display:block; margin-bottom:4px; }
+  input::placeholder, textarea::placeholder { color:#c8c8c8; }
+  .quickbtns { display:flex; gap:6px; margin-bottom:10px; }
+  .qbtn { flex:1; padding:14px 4px; border-radius:10px; border:none; cursor:pointer;
+          font-weight:700; font-size:1rem; margin-bottom:0; }
+  .qspend { background:#e8f6ee; color:var(--green); }
+  .qstamp { background:#eaf1fb; color:var(--brown); }
+  .custom-row { display:flex; gap:8px; margin-bottom:8px; }
+  .custom-row input { flex:1; width:auto; margin-bottom:0; }
+  .custom-row button { width:auto; padding:14px 18px; margin-bottom:0; white-space:nowrap; }
+  .section-divider { border-top:1px solid #eee; margin-top:16px; padding-top:14px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1 style="display:flex;align-items:center;gap:8px">
+    <img src="/logo.jpg" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:contain">
+    Till
+  </h1>
+  <button id="logoutBtn" class="hidden">Lock</button>
+</div>
+
+<div class="panel" id="loginPanel">
+  <label>Staff PIN</label>
+  <input id="pin" type="password" inputmode="numeric" placeholder="••••">
+  <button class="primary" id="loginBtn">Unlock</button>
+  <div class="msg err hidden" id="loginErr"></div>
+</div>
+
+<div class="panel hidden" id="scanPanel">
+  <div class="scanline"><video id="video" playsinline muted></video></div>
+  <p style="text-align:center;color:#666;font-size:.9rem">Point camera at the customer's QR code</p>
+  <button class="grey" id="manualBtn">Type code manually</button>
+  <div class="hidden" id="manualBox">
+    <input id="manualToken" placeholder="Card code (e.g. a1b2c3d4e5f6a7b8)">
+    <button class="primary" id="manualGo">Look up</button>
+  </div>
+</div>
+
+<div class="panel hidden" id="custPanel">
+  <div class="cust">
+    <div class="nm" id="cNm"></div>
+    <div class="pt"><span id="cPt"></span> <small>pts</small></div>
+  </div>
+  <div class="msg err hidden" id="actErr"></div>
+
+  <label>Spend</label>
+  <div class="quickbtns">
+    <button class="qbtn qspend" data-pounds="5">£5</button>
+    <button class="qbtn qspend" data-pounds="10">£10</button>
+    <button class="qbtn qspend" data-pounds="20">£20</button>
+  </div>
+  <div class="custom-row">
+    <input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="Custom £">
+    <button class="green" id="earnBtn">Add</button>
+  </div>
+
+  <div id="stampSection" class="hidden section-divider">
+    <label>Stamps</label>
+    <select id="stampSelect" style="margin-bottom:10px"></select>
+    <div class="quickbtns">
+      <button class="qbtn qstamp" data-count="1">1</button>
+      <button class="qbtn qstamp" data-count="2">2</button>
+      <button class="qbtn qstamp" data-count="3">3</button>
+      <button class="qbtn qstamp" data-count="4">4</button>
+      <button class="qbtn qstamp" data-count="5">5</button>
+    </div>
+    <div class="custom-row">
+      <input id="stampCount" type="number" inputmode="numeric" min="1" max="99" step="1" placeholder="Custom">
+      <button class="primary" id="stampBtn">⚽ Add</button>
+    </div>
+  </div>
+
+  <div id="rewardList" style="margin-top:10px"></div>
+
+  <button class="grey" id="backBtn" style="margin-top:8px">← Scan next customer</button>
+</div>
+
+<div class="panel hidden" id="resultPanel">
+  <div class="bigresult">
+    <div class="icon" id="rIcon"></div>
+    <div class="headline" id="rHead"></div>
+    <div class="sub" id="rSub"></div>
+    <div class="discount hidden" id="rDiscount"></div>
+  </div>
+  <button class="primary" id="doneBtn">Done — next customer</button>
+</div>
+
+<canvas id="grab" class="hidden"></canvas>
+
+<script src="/lib/jsQR.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let pinVal = localStorage.getItem('staffPin') || '';
+let curToken = null, stream = null, scanning = false;
+
+function show(panel) {
+  for (const p of ['loginPanel','scanPanel','custPanel','resultPanel']) $(p).classList.add('hidden');
+  $(panel).classList.remove('hidden');
+  $('logoutBtn').classList.toggle('hidden', panel === 'loginPanel');
+  if (panel === 'scanPanel') startScan(); else stopScan();
+}
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-Pin': pinVal }, opts.headers);
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { localStorage.removeItem('staffPin'); show('loginPanel'); throw new Error('PIN expired'); }
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+$('loginBtn').onclick = async () => {
+  pinVal = $('pin').value;
+  try {
+    await api('/api/shop/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) });
+    localStorage.setItem('staffPin', pinVal);
+    show('scanPanel');
+  } catch (e) { $('loginErr').textContent = e.message; $('loginErr').classList.remove('hidden'); }
+};
+$('logoutBtn').onclick = () => { localStorage.removeItem('staffPin'); pinVal=''; show('loginPanel'); };
+
+async function startScan() {
+  scanning = true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const v = $('video');
+    v.srcObject = stream;
+    await v.play();
+    requestAnimationFrame(tick);
+  } catch (e) {
+    $('manualBox').classList.remove('hidden');
+  }
+}
+function stopScan() {
+  scanning = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+function tick() {
+  if (!scanning) return;
+  const v = $('video'), cv = $('grab');
+  if (v.readyState === v.HAVE_ENOUGH_DATA) {
+    cv.width = v.videoWidth; cv.height = v.videoHeight;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(v, 0, 0);
+    const img = ctx.getImageData(0, 0, cv.width, cv.height);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+      const token = code.data.split('/').pop().trim();
+      if (token) { lookup(token); return; }
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+$('manualBtn').onclick = () => $('manualBox').classList.toggle('hidden');
+$('manualGo').onclick = () => lookup($('manualToken').value.trim().split('/').pop());
+
+async function lookup(token) {
+  stopScan();
+  try {
+    const d = await api('/api/shop/customer/' + token);
+    curToken = token;
+    $('cNm').textContent = d.name;
+    $('cPt').textContent = d.points;
+    $('amount').value = '';
+    $('stampCount').value = '';
+    $('actErr').classList.add('hidden');
+
+    const stampRewards = d.rewards.filter(r => r.type === 'stamp');
+    if (stampRewards.length > 0) {
+      $('stampSelect').innerHTML = stampRewards.map(r =>
+        `<option value="${r.id}" data-item="${r.itemName || 'item'}">${r.name}</option>`).join('');
+      $('stampSection').classList.remove('hidden');
+    } else {
+      $('stampSection').classList.add('hidden');
+    }
+
+    $('rewardList').innerHTML = '<label>Redeem a reward</label>' + d.rewards.map(r =>
+      `<button class="reward-btn" data-id="${r.id}" data-name="${r.name}" data-cost="${r.pointsCost}"
+        ${d.points < r.pointsCost ? 'disabled' : ''}>
+        <span>${r.name}</span>
+        <span>${r.pointsCost} ${r.type === 'stamp' ? '⚽' : 'pts'}</span></button>`).join('');
+    for (const b of $('rewardList').querySelectorAll('button'))
+      b.onclick = () => redeem(b.dataset.id, b.dataset.name);
+    show('custPanel');
+  } catch (e) {
+    if (e.message !== 'PIN expired') { alert(e.message); show('scanPanel'); }
+  }
+}
+
+async function doEarn(pounds) {
+  try {
+    const d = await api('/api/shop/earn', { method:'POST',
+      body: JSON.stringify({ token: curToken, amountPence: Math.round(pounds * 100) }) });
+    result('✅', `+${d.pointsEarned} points`, `${d.name} now has ${d.newBalance} pts`, null);
+  } catch (e) { showErr(e.message); }
+}
+
+async function doStamp(count) {
+  const sel = $('stampSelect');
+  const itemName = sel.options[sel.selectedIndex]?.dataset.item || 'item';
+  try {
+    const d = await api('/api/shop/stamp', { method:'POST',
+      body: JSON.stringify({ token: curToken, itemCount: count, itemName }) });
+    result('⚽', `+${d.stampsEarned} stamp${d.stampsEarned > 1 ? 's' : ''}`, `${d.name} now has ${d.newBalance} stamps`, null);
+  } catch (e) { showErr(e.message); }
+}
+
+$('earnBtn').onclick = async () => {
+  const pounds = parseFloat($('amount').value);
+  if (!(pounds > 0)) { showErr('Enter the transaction value'); return; }
+  await doEarn(pounds);
+};
+
+$('stampBtn').onclick = async () => {
+  const count = parseInt($('stampCount').value, 10);
+  if (!(count > 0)) { showErr('Enter the number of items'); return; }
+  await doStamp(count);
+};
+
+document.querySelectorAll('.qbtn.qspend').forEach(b =>
+  b.onclick = () => doEarn(parseFloat(b.dataset.pounds)));
+document.querySelectorAll('.qbtn.qstamp').forEach(b =>
+  b.onclick = () => doStamp(parseInt(b.dataset.count, 10)));
+
+async function redeem(rewardId, name) {
+  if (!confirm(`Redeem "${name}" for this customer?`)) return;
+  try {
+    const d = await api('/api/shop/redeem', { method:'POST',
+      body: JSON.stringify({ token: curToken, rewardId: Number(rewardId) }) });
+    result('🎉', d.reward + ' redeemed', `${d.name} now has ${d.newBalance} pts`, d.instruction);
+  } catch (e) { showErr(e.message); }
+}
+
+function showErr(m) { $('actErr').textContent = m; $('actErr').classList.remove('hidden'); }
+
+function result(icon, head, sub, discount) {
+  $('rIcon').textContent = icon;
+  $('rHead').textContent = head;
+  $('rSub').textContent = sub;
+  $('rDiscount').classList.toggle('hidden', !discount);
+  if (discount) $('rDiscount').textContent = '💷 ' + discount;
+  show('resultPanel');
+}
+
+$('backBtn').onclick = () => show('scanPanel');
+$('doneBtn').onclick = () => show('scanPanel');
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/shop/sw.js');
+if (pinVal) {
+  api('/api/shop/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) })
+    .then(() => show('scanPanel')).catch(() => show('loginPanel'));
+} else show('loginPanel');
+</script>
+</body>
+</html>
