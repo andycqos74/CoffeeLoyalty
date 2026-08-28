@@ -1,6 +1,6 @@
 services:
   loyaltyapp:
-    image: loyaltyapp:latest
+    image: ghcr.io/andycqos74/loyaltyapp:latest
     container_name: loyaltyapp
     restart: unless-stopped
     ports:
@@ -8,7 +8,7 @@ services:
     volumes:
       # Persists loyalty.db between container restarts/updates.
       # On first run Docker copies the published app into the volume;
-      # subsequent runs keep the DB that has accumulated in the volume.
+      # subsequent runs keep the DB accumulated in the volume.
       - loyalty_data:/app
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
