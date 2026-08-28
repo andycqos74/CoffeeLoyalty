@@ -4,12 +4,10 @@ services:
     container_name: loyaltyapp
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "3002:8080"
     volumes:
-      # Persists loyalty.db between container restarts/updates.
-      # On first run Docker copies the published app into the volume;
-      # subsequent runs keep the DB accumulated in the volume.
-      - loyalty_data:/app
+      # Only the database directory is persisted — app binaries always come from the image.
+      - loyalty_data:/app/data
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080

@@ -10,7 +10,9 @@ var app = builder.Build();
 // ---------------------------------------------------------------------------
 // Database
 // ---------------------------------------------------------------------------
-var dbPath = Path.Combine(AppContext.BaseDirectory, "loyalty.db");
+var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
+Directory.CreateDirectory(dataDir);
+var dbPath = Path.Combine(dataDir, "loyalty.db");
 var connString = $"Data Source={dbPath}";
 
 SqliteConnection Open()
