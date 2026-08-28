@@ -1,0 +1,17 @@
+bin/
+obj/
+publish/
+.vs/
+.idea/
+.git/
+*.user
+*.log
+*.db
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+*.zip
+design_handoff_loyalty_option2/
+node_modules/
+.env
+.env.*

@@ -1,0 +1,25 @@
+services:
+  loyaltyapp:
+    image: ghcr.io/andycqos74/coffeeloyalty:latest
+    container_name: loyaltyapp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persists loyalty.db between container restarts/updates.
+      # On first run Docker copies the published app into the volume;
+      # subsequent runs keep the DB accumulated in the volume.
+      - loyalty_data:/app
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/admin/wallet-status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  loyalty_data:
+    driver: local

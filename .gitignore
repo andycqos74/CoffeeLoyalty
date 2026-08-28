@@ -1,0 +1,92 @@
+# ── Build output ──────────────────────────────────────────────────────────────
+bin/
+obj/
+publish/
+out/
+
+# ── Visual Studio / Rider ─────────────────────────────────────────────────────
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+.idea/
+
+# ── ASP.NET Core Secrets ──────────────────────────────────────────────────────
+# appsettings.json is safe to commit ONLY if it contains no real secrets.
+# appsettings.Development.json almost always has local connection strings — ignore it.
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.*.json
+# Keep the base appsettings.json only if it has no secrets (review before committing).
+# If it contains real connection strings, uncomment the next line:
+# appsettings.json
+
+# ── .NET User Secrets ─────────────────────────────────────────────────────────
+secrets.json
+**/secrets.json
+
+# ── Environment & config files ────────────────────────────────────────────────
+.env
+.env.*
+*.env
+local.settings.json
+
+# ── Google / Firebase credentials ────────────────────────────────────────────
+*-service-account*.json
+*serviceAccountKey*.json
+firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+*credentials*.json
+
+# ── SSL / TLS Certificates & Keys ─────────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.der
+*.ca-bundle
+*.cer
+
+# ── Cloud provider credentials ────────────────────────────────────────────────
+.aws/
+.azure/
+credentials.json
+
+# ── SQLite database files ─────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── NuGet ─────────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+artifacts/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Large / generated files that shouldn't be in git ─────────────────────────
+*.zip
+design_handoff_loyalty_option2/
+
+# ── Node (if any frontend tooling exists) ─────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── JetBrains ─────────────────────────────────────────────────────────────────
+.idea/
+*.DotSettings.user
