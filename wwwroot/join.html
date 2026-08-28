@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#094582">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<title>Join — Queen of the South Café</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Manrope', sans-serif;
+       background: radial-gradient(120% 80% at 80% 0%, #0d5396 0%, #08315b 55%, #052038 100%);
+       min-height: 100vh; display: flex; }
+.screen { position: relative; width: 100%; max-width: 480px; margin: 0 auto;
+          display: flex; flex-direction: column; overflow: hidden; min-height: 100vh; }
+.watermark { position: absolute; right: -60px; top: 120px; width: 300px; height: 300px;
+             opacity: .07; filter: brightness(0) invert(1); pointer-events: none; user-select: none; }
+.content { position: relative; z-index: 2; padding: 26px 26px 32px;
+           display: flex; flex-direction: column; flex: 1; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand img { width: 40px; height: 40px; border-radius: 50%; background: #fff; padding: 2px; object-fit: contain; }
+.brand-name { font-family: 'Space Grotesk', sans-serif; font-size: 11px; letter-spacing: .14em;
+              text-transform: uppercase; color: rgba(255,255,255,.85); font-weight: 600; }
+.hero { margin-top: 56px; }
+.pill { display: inline-flex; align-items: center; background: rgba(0,159,255,.18);
+        border: 1px solid rgba(95,196,255,.35); color: #7fd0ff; font-size: 11px;
+        letter-spacing: .12em; text-transform: uppercase; font-weight: 700;
+        padding: 7px 13px; border-radius: 99px; }
+.headline { font-family: 'Space Grotesk', sans-serif; font-size: 52px; line-height: .98;
+            font-weight: 700; color: #fff; letter-spacing: -.02em; margin-top: 20px; }
+.headline .accent { color: #5fc4ff; }
+.subcopy { font-size: 15px; color: rgba(255,255,255,.78); margin-top: 18px;
+           line-height: 1.5; max-width: 300px; }
+.photo-block { position: relative; margin: 30px -26px 0; padding: 34px 26px 30px;
+               min-height: 300px; display: flex; flex-direction: column; justify-content: center; }
+.photo-bg { position: absolute; inset: 0; pointer-events: none;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 66%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 66%, transparent 100%); }
+.photo-bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+                object-position: center 50%; opacity: .7;
+                -webkit-mask-image: radial-gradient(140% 100% at 50% 50%, #000 40%, rgba(0,0,0,.55) 68%, transparent 92%);
+                mask-image: radial-gradient(140% 100% at 50% 50%, #000 40%, rgba(0,0,0,.55) 68%, transparent 92%); }
+.photo-tint { position: absolute; inset: 0; }
+.photo-fade { position: absolute; left: 0; right: 0; bottom: -1px; height: 46px; pointer-events: none;
+              background: linear-gradient(to bottom, rgba(8,49,91,0) 0%, rgba(8,49,91,.55) 55%, #08315b 100%); }
+.inputs { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+               font-weight: 700; color: rgba(159,205,255,.85); }
+.opt { color: rgba(255,255,255,.55); font-weight: 600; letter-spacing: 0; text-transform: none; }
+.field input { width: 100%; background: rgba(7,30,52,.5); border: 1px solid rgba(255,255,255,.22);
+               border-radius: 14px; padding: 16px 17px; color: #fff; font-family: 'Manrope', sans-serif;
+               font-size: 15px; outline: none; backdrop-filter: blur(8px);
+               transition: border-color .15s, background .15s; }
+.field input:focus { border-color: #5fc4ff; background: rgba(95,196,255,.14); }
+.field input::placeholder { color: rgba(255,255,255,.35); }
+.cta { margin-top: auto; padding-top: 34px; display: flex; flex-direction: column; gap: 12px; }
+.btn-primary { width: 100%; border: none; cursor: pointer; background: #009fff; color: #04243f;
+               font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px;
+               padding: 18px; border-radius: 16px; box-shadow: 0 12px 28px rgba(0,159,255,.4);
+               transition: background .15s; }
+.btn-primary:hover { background: #33b3ff; }
+.btn-secondary { display: flex; align-items: center; justify-content: center; gap: 8px;
+                 cursor: pointer; border: none; background: none; padding: 4px; }
+.btn-secondary span { font-size: 13.5px; color: rgba(255,255,255,.85); font-weight: 600; }
+.btn-secondary .arrow { color: #5fc4ff; font-weight: 700; font-size: 15px; }
+.err { color: #ff8fa3; font-size: 13px; text-align: center; min-height: 1em; }
+.back-banner { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.4);
+               border-radius: 16px; padding: 16px; display: none; }
+.back-banner p { font-size: 14px; color: rgba(255,255,255,.85); margin: 0 0 10px; }
+.back-banner .btn-back { width: 100%; border: none; cursor: pointer; background: #34d399;
+                         color: #04243f; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+                         font-size: 14px; padding: 14px; border-radius: 12px; }
+.install-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(110%);
+               width: 100%; max-width: 480px; background: #0a2e50;
+               border-top: 1px solid rgba(95,196,255,.22); padding: 14px 18px;
+               display: flex; align-items: center; gap: 12px; z-index: 200;
+               transition: transform .35s cubic-bezier(.2,.8,.4,1); }
+.install-bar.visible { transform: translateX(-50%) translateY(0); }
+.install-bar-icon { width: 38px; height: 38px; border-radius: 9px; background: #fff;
+                    flex-shrink: 0; padding: 3px; object-fit: contain; }
+.install-bar-text { flex: 1; min-width: 0; }
+.install-bar-title { font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #fff; }
+.install-bar-sub { font-size: 11.5px; color: rgba(255,255,255,.6); margin-top: 2px; }
+.install-bar-btn { border: none; cursor: pointer; background: #009fff; color: #04243f;
+                   font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12.5px;
+                   padding: 9px 15px; border-radius: 9px; white-space: nowrap; flex-shrink: 0; }
+.install-bar-close { background: none; border: none; color: rgba(255,255,255,.45); cursor: pointer;
+                     font-size: 22px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+.consent-row { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; }
+.consent-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;
+  accent-color: #009fff; cursor: pointer; }
+.consent-label { font-size: 13px; color: rgba(255,255,255,.75); line-height: 1.45; }
+.privacy-link { display: block; text-align: center; font-size: 11.5px;
+                color: rgba(255,255,255,.4); text-decoration: underline; text-decoration-color: rgba(255,255,255,.2);
+                cursor: pointer; background: none; border: none; padding: 0; }
+.privacy-link:hover { color: rgba(255,255,255,.7); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(3,14,26,.85); z-index: 300;
+                 display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal-sheet { background: #0d2d4a; border-radius: 22px 22px 0 0; padding: 28px 24px 36px;
+               width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: #fff; }
+.modal-close { background: rgba(255,255,255,.1); border: none; color: #fff; cursor: pointer;
+               width: 30px; height: 30px; border-radius: 50%; font-size: 16px; line-height: 1;
+               display: flex; align-items: center; justify-content: center; }
+.modal-body h3 { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+                 color: #7fd0ff; text-transform: uppercase; letter-spacing: .1em; margin: 16px 0 5px; }
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body p { font-size: 13.5px; color: rgba(255,255,255,.75); line-height: 1.6; margin: 0 0 4px; }
+.modal-body a { color: #5fc4ff; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <img src="/logo.png" alt="" class="watermark">
+  <div class="content">
+
+    <div class="brand">
+      <img src="/logo.png" alt="QOSFC">
+      <span class="brand-name">Queen of the South</span>
+    </div>
+
+    <div class="hero">
+      <div class="pill">Loyalty club</div>
+      <div class="headline">Coffee<br>fit for<br><span class="accent">royalty.</span></div>
+      <p class="subcopy">Collect a stamp with every cup. Fill your card and the next one's free — no app, no fuss.</p>
+    </div>
+
+    <div class="photo-block">
+      <div class="photo-bg">
+        <img src="/latte.png" alt="">
+        <div class="photo-tint" style="mix-blend-mode:multiply;background:radial-gradient(110% 90% at 50% 45%,rgba(13,83,150,.62) 0%,rgba(8,49,91,.84) 55%,#08315b 88%)"></div>
+        <div class="photo-tint" style="mix-blend-mode:soft-light;background:linear-gradient(150deg,rgba(95,196,255,.4) 0%,rgba(13,83,150,.3) 50%,rgba(5,32,56,.5) 100%)"></div>
+        <div class="photo-tint" style="background:radial-gradient(120% 80% at 50% 50%,rgba(6,29,51,.55) 0%,rgba(6,29,51,.15) 60%,transparent 100%)"></div>
+      </div>
+      <div class="photo-fade"></div>
+      <div class="inputs">
+        <div class="back-banner" id="welcomeBack">
+          <p>Welcome back, <b id="backName"></b>! You already have a card on this device.</p>
+          <button type="button" class="btn-back" id="openCardBtn">Open my loyalty card</button>
+        </div>
+        <div class="field">
+          <span class="field-label">Your name</span>
+          <input id="name" type="text" placeholder="e.g. Alex Morgan" autocomplete="name">
+        </div>
+        <div class="field">
+          <span class="field-label">Email <span class="opt">(optional)</span></span>
+          <input id="email" type="email" placeholder="you@email.com" autocomplete="email">
+        </div>
+      </div>
+    </div>
+
+    <div class="cta">
+      <label class="consent-row">
+        <input type="checkbox" id="marketingOk">
+        <span class="consent-label">I'd like to receive news and special offers by email from Queen of the South Café.</span>
+      </label>
+      <div class="err" id="err"></div>
+      <button class="btn-primary" id="joinBtn">Get my loyalty card</button>
+      <button class="btn-secondary" id="alreadyBtn">
+        <span>Already joined? Open my card</span>
+        <span class="arrow">→</span>
+      </button>
+      <button class="privacy-link" id="privacyLink">Privacy Policy</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="privacyModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Privacy Policy</span>
+      <button class="modal-close" id="privacyClose">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <h3>Who we are</h3>
+      <p>Queen of the South Café is the data controller for information collected through this loyalty programme.</p>
+      <h3>What we collect</h3>
+      <p>We collect your name, email address (optional), and a record of stamps and rewards earned through our loyalty scheme.</p>
+      <h3>How we use it</h3>
+      <p>Your information is used solely to operate your loyalty card — tracking stamps, notifying you of rewards, and letting you access your card on any device. If you opt in, we may also send you news and special offers by email.</p>
+      <h3>Marketing emails</h3>
+      <p>We will only send marketing emails if you tick the opt-in box when signing up. You can withdraw consent at any time by contacting us at the address below.</p>
+      <h3>How long we keep it</h3>
+      <p>We retain your data for as long as your loyalty account is active. You can request deletion at any time.</p>
+      <h3>Your rights</h3>
+      <p>Under UK GDPR you have the right to access, correct, or delete your personal data, and to object to or restrict how we use it. To exercise any of these rights, or to withdraw marketing consent, please contact us at <a href="mailto:hello@queensofthecafe.co.uk">hello@queensofthecafe.co.uk</a>.</p>
+      <h3>Sharing</h3>
+      <p>We do not sell or share your personal data with third parties for their own marketing purposes.</p>
+    </div>
+  </div>
+</div>
+
+<div class="install-bar" id="installBar">
+  <img src="/logo.png" alt="" class="install-bar-icon">
+  <div class="install-bar-text">
+    <div class="install-bar-title">Add to Home Screen</div>
+    <div class="install-bar-sub" id="installSub">Install for quick access</div>
+  </div>
+  <button class="install-bar-btn" id="installBtn">Add</button>
+  <button class="install-bar-close" id="installClose" aria-label="Dismiss">&#x2715;</button>
+</div>
+
+<script>
+(async () => {
+  let saved = null;
+  try { saved = localStorage.getItem('myCardToken'); } catch (e) {}
+  if (!saved) return;
+  const res = await fetch('/api/customer/' + saved);
+  if (!res.ok) { try { localStorage.removeItem('myCardToken'); } catch (e) {} return; }
+  const d = await res.json();
+  document.getElementById('backName').textContent = d.name;
+  document.getElementById('openCardBtn').onclick = () => location.href = '/card/' + saved;
+  document.getElementById('welcomeBack').style.display = 'block';
+})();
+
+document.getElementById('joinBtn').addEventListener('click', async () => {
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const err = document.getElementById('err');
+  err.textContent = '';
+  if (!name) { err.textContent = 'Please enter your name.'; return; }
+  const marketingOk = document.getElementById('marketingOk').checked;
+  const res = await fetch('/api/join', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, marketingOk })
+  });
+  const data = await res.json();
+  if (!res.ok) { err.textContent = data.error || 'Something went wrong.'; return; }
+  try { localStorage.setItem('myCardToken', data.token); } catch (e) {}
+  location.href = data.cardUrl;
+});
+
+document.getElementById('alreadyBtn').addEventListener('click', () => {
+  let saved = null;
+  try { saved = localStorage.getItem('myCardToken'); } catch (e) {}
+  if (saved) { location.href = '/card/' + saved; }
+  else { document.getElementById('err').textContent = 'No saved card on this device — join below.'; }
+});
+
+const privacyModal = document.getElementById('privacyModal');
+document.getElementById('privacyLink').onclick = () => privacyModal.classList.add('open');
+document.getElementById('privacyClose').onclick = () => privacyModal.classList.remove('open');
+privacyModal.addEventListener('click', e => { if (e.target === privacyModal) privacyModal.classList.remove('open'); });
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+(function () {
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) return;
+  const bar = document.getElementById('installBar');
+  const btn = document.getElementById('installBtn');
+  const sub = document.getElementById('installSub');
+  const dismiss = () => {
+    bar.classList.remove('visible');
+    try { sessionStorage.setItem('pwaHintDismissed', '1'); } catch (e) {}
+  };
+  document.getElementById('installClose').onclick = dismiss;
+
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    sub.textContent = 'Install for one-tap access to your card';
+    bar.classList.add('visible');
+    btn.onclick = async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      const { outcome } = await deferred.userChoice;
+      deferred = null;
+      if (outcome === 'accepted') bar.classList.remove('visible');
+    };
+  });
+
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    try { if (sessionStorage.getItem('pwaHintDismissed')) return; } catch (e) {}
+    sub.textContent = 'Tap Share → Add to Home Screen';
+    btn.textContent = 'Got it';
+    btn.onclick = dismiss;
+    bar.classList.add('visible');
+  }
+}());
+</script>
+</body>
+</html>
