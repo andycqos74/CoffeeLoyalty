@@ -1,0 +1,13 @@
+{
+  "name": "Queen of the South Café Loyalty",
+  "short_name": "QOSFC Loyalty",
+  "description": "Collect stamps and earn rewards at Queen of the South Café.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#052038",
+  "theme_color": "#094582",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

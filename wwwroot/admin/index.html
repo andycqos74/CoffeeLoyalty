@@ -1,0 +1,454 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queen of the South Café — Admin</title>
+<style>
+  :root { --brown:#094582; --cream:#f0f4fa; --accent:#1a6abf; --green:#2e8b57; --red:#c0392b; }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,-apple-system,sans-serif; background:var(--cream); margin:0; }
+  header { background:var(--brown); color:#fff; padding:14px 20px; display:flex;
+           justify-content:space-between; align-items:center; }
+  header h1 { font-size:1.1rem; margin:0; }
+  nav { display:flex; gap:4px; background:#062f5a; padding:0 12px; }
+  nav button { background:none; border:none; color:#8ab0d8; padding:12px 16px; cursor:pointer;
+               font-size:.9rem; border-bottom:3px solid transparent; }
+  nav button.on { color:#fff; border-bottom-color:var(--accent); font-weight:600; }
+  main { padding:20px; max-width:960px; margin:0 auto; }
+  .hidden { display:none !important; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
+  th, td { text-align:left; padding:10px 12px; font-size:.88rem; border-bottom:1px solid #d0ddf0; }
+  th { background:#eaf1fb; color:#1a4a82; font-weight:600; }
+  tr.click { cursor:pointer; } tr.click:hover { background:#f0f5fd; }
+  .panel { background:#fff; border-radius:12px; padding:20px; margin-bottom:16px; }
+  input, select, textarea { padding:10px; border:1px solid #ddd; border-radius:8px; font-size:.95rem; }
+  input::placeholder, textarea::placeholder { color:#c8c8c8; }
+  button.act { padding:10px 18px; background:var(--brown); color:#fff; border:none; border-radius:8px;
+               cursor:pointer; font-weight:600; }
+  button.small { padding:4px 10px; font-size:.8rem; background:#eee; border:none; border-radius:6px; cursor:pointer; }
+  button.small.danger { background:#fde8e8; color:var(--red); }
+  .edit-panel { background:#f7f9ff; border:1px solid #dde8f8; border-radius:10px; padding:14px; margin-bottom:12px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:.75rem; font-weight:600; }
+  .badge.on { background:#e8f6ee; color:var(--green); }
+  .badge.off { background:#eee; color:#888; }
+  .pts-plus { color:var(--green); font-weight:600; } .pts-minus { color:var(--red); font-weight:600; }
+  #loginBox { max-width:320px; margin:80px auto; text-align:center; }
+  #loginBox input { width:100%; margin-bottom:10px; }
+  #loginBox button { width:100%; }
+  .err { color:var(--red); font-size:.85rem; margin-top:8px; min-height:1em; }
+  .kpis { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .kpi { background:#fff; border-radius:12px; padding:14px 18px; flex:1; min-width:120px; }
+  .kpi .v { font-size:1.5rem; font-weight:700; color:var(--brown); }
+  .kpi .l { font-size:.75rem; color:#999; text-transform:uppercase; letter-spacing:.05em; }
+  h2 { color:var(--brown); font-size:1.05rem; }
+  a.back { color:var(--accent); text-decoration:none; font-size:.9rem; cursor:pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1 style="display:flex;align-items:center;gap:10px">
+    <img src="/logo.jpg" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:contain">
+    Queen of the South Café — Admin
+  </h1>
+  <button class="small hidden" id="lockBtn">Lock</button>
+</header>
+<nav id="tabs" class="hidden">
+  <button data-tab="customers" class="on">Customers</button>
+  <button data-tab="rewards">Rewards</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+<main>
+  <div id="loginBox" class="panel">
+    <h2>Admin PIN</h2>
+    <input id="pin" type="password" inputmode="numeric" placeholder="••••">
+    <button class="act" id="loginBtn">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <!-- CUSTOMERS -->
+  <div id="customers" class="hidden">
+    <div class="kpis" id="kpis"></div>
+    <div class="panel" style="padding:0"><table id="custTable">
+      <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Total spend</th><th>Points</th></tr></thead>
+      <tbody></tbody></table></div>
+  </div>
+
+  <!-- CUSTOMER DETAIL -->
+  <div id="detail" class="hidden">
+    <a class="back" id="backToList">← All customers</a>
+    <div class="panel" style="margin-top:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h2 id="dName" style="margin:0"></h2>
+        <div style="display:flex;gap:6px">
+          <button class="small" id="editCustBtn">Edit</button>
+          <button class="small danger" id="deleteCustBtn">Delete</button>
+        </div>
+      </div>
+
+      <!-- inline edit form -->
+      <div id="editCustForm" class="edit-panel hidden">
+        <div class="row">
+          <input id="editName" placeholder="Name" style="flex:1">
+          <input id="editEmail" type="email" placeholder="Email (optional)" style="flex:1">
+          <button class="act" id="saveEditBtn">Save</button>
+          <button class="small" id="cancelEditBtn">Cancel</button>
+        </div>
+        <div class="err" id="editErr"></div>
+      </div>
+
+      <div class="row" style="color:#666;font-size:.9rem">
+        <span id="dEmail"></span><span id="dJoined"></span>
+        <span>Card: <code id="dToken"></code></span>
+        <a id="dCardLink" target="_blank" style="color:var(--accent)">open card</a>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="v" id="dSpend"></div><div class="l">Total spend</div></div>
+        <div class="kpi"><div class="v" id="dPoints"></div><div class="l">Points balance</div></div>
+      </div>
+      <div class="row">
+        <input id="adjPts" type="number" placeholder="± points" style="width:110px">
+        <input id="adjReason" placeholder="Reason" style="flex:1">
+        <button class="act" id="adjBtn">Adjust points</button>
+      </div>
+    </div>
+    <div class="panel" style="padding:0"><table>
+      <thead><tr><th>When</th><th>Description</th><th>Amount</th><th>Points</th></tr></thead>
+      <tbody id="dActivity"></tbody></table></div>
+  </div>
+
+  <!-- REWARDS -->
+  <div id="rewards" class="hidden">
+    <div class="panel">
+      <h2 id="rwFormTitle">Add reward</h2>
+      <input type="hidden" id="rwId">
+      <div class="row">
+        <select id="rwType" style="width:160px">
+          <option value="points">Points-based</option>
+          <option value="stamp">Stamp card</option>
+        </select>
+        <input id="rwName" placeholder="e.g. Free regular coffee" style="flex:1">
+        <input id="rwCost" type="number" min="1" placeholder="Points / Stamps needed" style="width:140px">
+        <button class="act" id="rwAdd">Add</button>
+        <button class="small" id="rwCancel" style="display:none">Cancel</button>
+      </div>
+      <div id="rwStampRow" class="row hidden" style="margin-top:-4px">
+        <span style="width:160px;font-size:.85rem;color:#888">Stamp card item:</span>
+        <input id="rwItemName" placeholder="e.g. coffee" style="width:160px">
+        <span style="font-size:.82rem;color:#aaa">Customer sees: collect N coffees, get 1 free</span>
+      </div>
+    </div>
+    <div class="panel" style="padding:0"><table>
+      <thead><tr><th>Reward</th><th>Type</th><th>Points / Stamps</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rwBody"></tbody></table></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settings" class="hidden">
+    <div class="panel">
+      <h2>Programme settings</h2>
+      <div class="row"><label style="width:160px">Shop name</label><input id="sShop" style="flex:1" placeholder="e.g. Queen of the South Café"></div>
+      <div class="row"><label style="width:160px">Wallet programme name</label><input id="sWalletProgram" style="flex:1" placeholder="e.g. QOSFC Loyalty"><span style="font-size:.8rem;color:#aaa;white-space:nowrap">shown on Google Wallet pass</span></div>
+      <div class="row"><label style="width:160px">Points per £1 spent</label><input id="sRate" type="number" min="1" style="width:100px"></div>
+      <div class="row"><label style="width:160px">Staff PIN (till)</label><input id="sStaffPin" style="width:120px"></div>
+      <div class="row"><label style="width:160px">New admin PIN</label><input id="sAdminPin" placeholder="leave blank to keep" style="width:180px"></div>
+      <button class="act" id="sSave">Save settings</button>
+      <span id="sMsg" style="margin-left:10px;color:var(--green);font-size:.9rem"></span>
+    </div>
+    <div class="panel">
+      <h2>Google Wallet</h2>
+      <div id="gWalletStatus" style="margin-bottom:12px;font-size:.88rem"></div>
+      <div class="row"><label style="width:180px">Issuer ID</label><input id="sGIssuerId" placeholder="e.g. 3388000000012345678" style="flex:1"></div>
+      <div class="row" style="align-items:flex-start">
+        <label style="width:180px;padding-top:10px">Service account JSON</label>
+        <textarea id="sGServiceAccountJson" rows="5" placeholder='Paste full contents of your service account .json key file here' style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:.8rem;font-family:monospace;resize:vertical"></textarea>
+      </div>
+      <button class="act" id="sGSave">Save Google Wallet settings</button>
+      <button class="act" id="sGUpdateClass" style="margin-left:8px;background:#555">Update pass design</button>
+      <span id="sGMsg" style="margin-left:10px;color:var(--green);font-size:.9rem"></span>
+      <details style="margin-top:16px;font-size:.82rem;color:#777">
+        <summary style="cursor:pointer;font-weight:600">Setup instructions (takes ~10 minutes, free)</summary>
+        <ol style="margin:10px 0 0;padding-left:18px;line-height:1.8">
+          <li>Go to <b>pay.google.com/business/console</b> and sign up as a Google Wallet issuer (free). Copy your <b>Issuer ID</b> (a long number).</li>
+          <li>Open <b>console.cloud.google.com</b> → pick or create a project → search for <b>"Google Wallet API"</b> and enable it.</li>
+          <li>Go to <b>IAM &amp; Admin → Service Accounts</b> → Create a service account.</li>
+          <li>Grant it the role <b>"Wallet Object Issuer"</b>.</li>
+          <li>Click the service account → <b>Keys → Add Key → Create new key → JSON</b>. Download the file.</li>
+          <li>Back in the Wallet console, go to <b>Business → Users</b> and add the service account email with <b>Developer</b> access.</li>
+          <li>Paste the Issuer ID and the full contents of the JSON file above and save.</li>
+          <li>The first earn on any customer's card will auto-create the LoyaltyClass and push a "Save to Google Wallet" link to their card.</li>
+        </ol>
+      </details>
+    </div>
+    <div class="panel" style="font-size:.85rem;color:#777">
+      Earn rule: <b>£1 = <span id="ruleRate"></span> points</b> (rounded down per transaction).
+      Customers join at <code id="joinUrl"></code>; the till app lives at <code id="shopUrl"></code>.
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let pinVal = sessionStorage.getItem('adminPin') || '';
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({ 'Content-Type':'application/json', 'X-Pin': pinVal }, opts.headers);
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { sessionStorage.removeItem('adminPin'); location.reload(); throw new Error('unauthorized'); }
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function fmtMoney(p) { return '£' + (p / 100).toFixed(2); }
+function showTab(tab) {
+  for (const t of ['customers','detail','rewards','settings']) $(t).classList.add('hidden');
+  $(tab).classList.remove('hidden');
+  for (const b of document.querySelectorAll('nav button'))
+    b.classList.toggle('on', b.dataset.tab === tab);
+  if (tab === 'customers') loadCustomers();
+  if (tab === 'rewards') loadRewards();
+  if (tab === 'settings') loadSettings();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+// ---- login ----
+$('loginBtn').onclick = async () => {
+  pinVal = $('pin').value;
+  try {
+    await api('/api/admin/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) });
+    sessionStorage.setItem('adminPin', pinVal);
+    boot();
+  } catch (e) { $('loginErr').textContent = 'Invalid PIN'; }
+};
+$('lockBtn').onclick = () => { sessionStorage.removeItem('adminPin'); location.reload(); };
+
+function boot() {
+  $('loginBox').classList.add('hidden');
+  $('tabs').classList.remove('hidden');
+  $('lockBtn').classList.remove('hidden');
+  showTab('customers');
+}
+
+// ---- customers ----
+async function loadCustomers() {
+  const list = await api('/api/admin/customers');
+  const totSpend = list.reduce((s, c) => s + c.totalSpendPence, 0);
+  const totPts = list.reduce((s, c) => s + c.points, 0);
+  $('kpis').innerHTML = `
+    <div class="kpi"><div class="v">${list.length}</div><div class="l">Members</div></div>
+    <div class="kpi"><div class="v">${fmtMoney(totSpend)}</div><div class="l">Tracked spend</div></div>
+    <div class="kpi"><div class="v">${totPts}</div><div class="l">Points outstanding</div></div>`;
+  const tb = $('custTable').querySelector('tbody');
+  tb.innerHTML = list.map(c => `
+    <tr class="click" data-id="${c.id}">
+      <td><b>${c.name}</b></td><td>${c.email || ''}</td>
+      <td>${c.createdAt.split(' ')[0]}</td>
+      <td>${fmtMoney(c.totalSpendPence)}</td><td><b>${c.points}</b></td></tr>`).join('')
+    || '<tr><td colspan="5" style="color:#999">No customers yet</td></tr>';
+  tb.querySelectorAll('tr.click').forEach(r => r.onclick = () => openDetail(r.dataset.id));
+}
+
+let curCustomer = null;
+async function openDetail(id) {
+  const d = await api('/api/admin/customer/' + id);
+  curCustomer = d;
+  $('dName').textContent = d.name;
+  $('dEmail').textContent = d.email || 'no email';
+  $('dJoined').textContent = 'joined ' + d.createdAt.split(' ')[0];
+  $('dToken').textContent = d.token;
+  $('dCardLink').href = '/card/' + d.token;
+  $('dSpend').textContent = fmtMoney(d.totalSpendPence);
+  $('dPoints').textContent = d.points;
+  $('dActivity').innerHTML = d.activity.map(a => `
+    <tr><td>${a.createdAt}</td><td>${a.description || a.type}</td>
+        <td>${a.amountPence ? fmtMoney(a.amountPence) : ''}</td>
+        <td class="${a.points >= 0 ? 'pts-plus' : 'pts-minus'}">${a.points >= 0 ? '+' : ''}${a.points}</td></tr>`).join('')
+    || '<tr><td colspan="4" style="color:#999">No activity</td></tr>';
+  for (const t of ['customers','rewards','settings']) $(t).classList.add('hidden');
+  $('detail').classList.remove('hidden');
+}
+$('backToList').onclick = () => showTab('customers');
+
+$('adjBtn').onclick = async () => {
+  const pts = parseInt($('adjPts').value, 10);
+  if (!pts) return;
+  await api('/api/admin/adjust', { method:'POST', body: JSON.stringify({
+    customerId: curCustomer.id, points: pts, reason: $('adjReason').value || 'Manual adjustment' }) });
+  $('adjPts').value = ''; $('adjReason').value = '';
+  openDetail(curCustomer.id);
+};
+
+$('editCustBtn').onclick = () => {
+  $('editName').value = curCustomer.name;
+  $('editEmail').value = curCustomer.email || '';
+  $('editErr').textContent = '';
+  $('editCustForm').classList.toggle('hidden');
+};
+$('cancelEditBtn').onclick = () => $('editCustForm').classList.add('hidden');
+$('saveEditBtn').onclick = async () => {
+  const name = $('editName').value.trim();
+  const email = $('editEmail').value.trim();
+  if (!name) { $('editErr').textContent = 'Name is required'; return; }
+  try {
+    await api('/api/admin/customer/' + curCustomer.id, { method:'PUT',
+      body: JSON.stringify({ name, email: email || null }) });
+    $('editCustForm').classList.add('hidden');
+    openDetail(curCustomer.id);
+  } catch (e) { $('editErr').textContent = e.message; }
+};
+
+$('deleteCustBtn').onclick = async () => {
+  if (!confirm(`Permanently delete ${curCustomer.name}?\n\nThis removes their loyalty card and all transaction history and cannot be undone.`)) return;
+  try {
+    await api('/api/admin/customer/' + curCustomer.id, { method:'DELETE' });
+    showTab('customers');
+  } catch (e) { alert('Delete failed: ' + e.message); }
+};
+
+// ---- rewards ----
+$('rwType').onchange = () => {
+  $('rwStampRow').classList.toggle('hidden', $('rwType').value !== 'stamp');
+  $('rwCost').placeholder = $('rwType').value === 'stamp' ? 'Stamps needed (e.g. 10)' : 'Points needed';
+};
+
+async function loadRewards() {
+  const list = await api('/api/admin/rewards');
+  $('rwBody').innerHTML = list.map(r => {
+    const typeLabel = r.type === 'stamp'
+      ? `<span class="badge on">⚽ stamp</span>`
+      : `<span class="badge" style="background:#e8eef8;color:#1a4a82">pts</span>`;
+    const costLabel = r.type === 'stamp'
+      ? `${r.pointsCost} stamps${r.itemName ? ` (${r.itemName})` : ''}`
+      : `${r.pointsCost} pts`;
+    return `<tr>
+      <td>${r.name}</td>
+      <td>${typeLabel}</td>
+      <td>${costLabel}</td>
+      <td><span class="badge ${r.active ? 'on' : 'off'}">${r.active ? 'active' : 'hidden'}</span></td>
+      <td style="display:flex;gap:4px">
+        <button class="small edit-btn"
+          data-id="${r.id}" data-name="${r.name}" data-cost="${r.pointsCost}"
+          data-type="${r.type}" data-item="${r.itemName || ''}"
+          data-active="${r.active}">Edit</button>
+        <button class="small toggle-btn"
+          data-id="${r.id}" data-name="${r.name}" data-cost="${r.pointsCost}"
+          data-type="${r.type}" data-item="${r.itemName || ''}"
+          data-active="${r.active}">${r.active ? 'Deactivate' : 'Activate'}</button>
+      </td></tr>`;
+  }).join('');
+  $('rwBody').querySelectorAll('.toggle-btn').forEach(b => b.onclick = async () => {
+    await api('/api/admin/rewards/' + b.dataset.id, { method:'PUT', body: JSON.stringify({
+      name: b.dataset.name, pointsCost: Number(b.dataset.cost),
+      type: b.dataset.type, itemName: b.dataset.item || null,
+      active: b.dataset.active !== 'true' }) });
+    loadRewards();
+  });
+  $('rwBody').querySelectorAll('.edit-btn').forEach(b => b.onclick = () => {
+    $('rwId').value = b.dataset.id;
+    $('rwName').value = b.dataset.name;
+    $('rwCost').value = b.dataset.cost;
+    $('rwType').value = b.dataset.type;
+    $('rwItemName').value = b.dataset.item || '';
+    $('rwStampRow').classList.toggle('hidden', b.dataset.type !== 'stamp');
+    $('rwCost').placeholder = b.dataset.type === 'stamp' ? 'Stamps needed (e.g. 10)' : 'Points needed';
+    $('rwFormTitle').textContent = 'Edit reward';
+    $('rwAdd').textContent = 'Save';
+    $('rwCancel').style.display = '';
+    $('rwName').focus();
+    $('rwName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function rwReset() {
+  $('rwId').value = ''; $('rwName').value = ''; $('rwCost').value = ''; $('rwItemName').value = '';
+  $('rwType').value = 'points'; $('rwStampRow').classList.add('hidden');
+  $('rwCost').placeholder = 'Points / Stamps needed';
+  $('rwFormTitle').textContent = 'Add reward';
+  $('rwAdd').textContent = 'Add'; $('rwCancel').style.display = 'none';
+}
+
+$('rwCancel').onclick = rwReset;
+
+$('rwAdd').onclick = async () => {
+  const id = $('rwId').value;
+  const name = $('rwName').value.trim(), cost = parseInt($('rwCost').value, 10);
+  const type = $('rwType').value;
+  const itemName = type === 'stamp' ? $('rwItemName').value.trim() || null : null;
+  if (!name || !(cost > 0)) return;
+  if (id) {
+    await api('/api/admin/rewards/' + id, { method:'PUT', body: JSON.stringify({ name, pointsCost: cost, type, itemName, active: true }) });
+  } else {
+    await api('/api/admin/rewards', { method:'POST', body: JSON.stringify({ name, pointsCost: cost, type, itemName }) });
+  }
+  rwReset();
+  loadRewards();
+};
+
+// ---- settings ----
+async function loadSettings() {
+  const s = await api('/api/admin/settings');
+  $('sShop').value = s.shopName;
+  $('sWalletProgram').value = s.walletProgramName || '';
+  $('sRate').value = s.pointsPerPound;
+  $('sStaffPin').value = s.staffPin;
+  $('sAdminPin').value = '';
+  $('sGIssuerId').value = s.googleWalletIssuerId || '';
+  $('sGServiceAccountJson').value = '';
+  $('gWalletStatus').innerHTML = s.googleWalletConfigured
+    ? '<span style="color:var(--green);font-weight:600">✓ Google Wallet configured</span> — customers will see a real Save to Google Wallet button after their next transaction.'
+    : '<span style="color:#999">Not configured — the button on the customer card is hidden until credentials are saved below.</span>';
+  $('ruleRate').textContent = s.pointsPerPound;
+  $('joinUrl').textContent = location.origin + '/join.html';
+  $('shopUrl').textContent = location.origin + '/shop/';
+}
+$('sSave').onclick = async () => {
+  await api('/api/admin/settings', { method:'PUT', body: JSON.stringify({
+    shopName: $('sShop').value, walletProgramName: $('sWalletProgram').value, pointsPerPound: $('sRate').value,
+    staffPin: $('sStaffPin').value, adminPin: $('sAdminPin').value }) });
+  if ($('sAdminPin').value) { pinVal = $('sAdminPin').value; sessionStorage.setItem('adminPin', pinVal); }
+  $('sMsg').textContent = 'Saved ✓'; setTimeout(() => $('sMsg').textContent = '', 2000);
+  loadSettings();
+};
+$('sGUpdateClass').onclick = async () => {
+  $('sGUpdateClass').disabled = true;
+  $('sGMsg').style.color = '#888'; $('sGMsg').textContent = 'Updating pass design on Google…';
+  try {
+    await api('/api/admin/wallet-update-class', { method:'POST' });
+    $('sGMsg').style.color = 'var(--green)';
+    $('sGMsg').textContent = 'Pass design updated ✓ — customers may need to remove and re-add their pass to see the change.';
+  } catch (e) {
+    $('sGMsg').style.color = 'var(--red)';
+    $('sGMsg').textContent = 'Failed: ' + e.message;
+  } finally {
+    $('sGUpdateClass').disabled = false;
+    setTimeout(() => $('sGMsg').textContent = '', 8000);
+  }
+};
+
+$('sGSave').onclick = async () => {
+  const issuerId = $('sGIssuerId').value.trim();
+  const saJson = $('sGServiceAccountJson').value.trim();
+  if (!issuerId) { $('sGMsg').style.color = 'var(--red)'; $('sGMsg').textContent = 'Issuer ID required'; return; }
+  // Validate JSON if provided
+  if (saJson) {
+    try { JSON.parse(saJson); } catch { $('sGMsg').style.color = 'var(--red)'; $('sGMsg').textContent = 'Invalid JSON — paste the full .json file contents'; return; }
+  }
+  await api('/api/admin/settings', { method:'PUT', body: JSON.stringify({
+    googleWalletIssuerId: issuerId,
+    ...(saJson ? { googleWalletServiceAccountJson: saJson } : {})
+  }) });
+  $('sGMsg').style.color = 'var(--green)';
+  $('sGMsg').textContent = 'Saved ✓'; setTimeout(() => $('sGMsg').textContent = '', 3000);
+  loadSettings();
+};
+
+// ---- boot ----
+if (pinVal) {
+  api('/api/admin/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) })
+    .then(boot).catch(() => {});
+}
+</script>
+</body>
+</html>

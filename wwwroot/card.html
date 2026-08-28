@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#094582">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>My QOSFC Loyalty Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+@keyframes qosPulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+@keyframes qosPop { 0% { transform:scale(.6); opacity:0 } 60% { transform:scale(1.08) } 100% { transform:scale(1); opacity:1 } }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Manrope', sans-serif; background: #061d33;
+       min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+.screen { width: 100%; max-width: 480px; display: flex; flex-direction: column; }
+.card-header { padding: 20px 24px; display: flex; align-items: center; gap: 12px;
+               border-bottom: 1px solid rgba(255,255,255,.08); }
+.hdr-logo { width: 42px; height: 42px; border-radius: 50%; background: #fff;
+            padding: 2px; object-fit: contain; flex-shrink: 0; }
+.hdr-sub { font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+           color: rgba(255,255,255,.5); font-weight: 600; }
+.hdr-name { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: #fff; }
+.card-body { padding: 22px 22px 36px; display: flex; flex-direction: column; gap: 18px; }
+body.install-bar-visible .card-body { padding-bottom: 110px; }
+.qr-hero { position: relative; border-radius: 26px; padding: 22px; overflow: hidden;
+           background: radial-gradient(135% 95% at 80% 4%, #12588f 0%, #0a3e6c 52%, #062b4e 100%);
+           box-shadow: 0 16px 34px rgba(6,51,95,.4); text-align: center; }
+.qr-glow { position: absolute; right: -58px; top: -52px; width: 240px; height: 240px;
+           border-radius: 50%; pointer-events: none;
+           background: radial-gradient(circle, rgba(120,190,255,.2) 0%, rgba(120,190,255,.07) 52%, transparent 72%); }
+.qr-inner { position: relative; z-index: 2; }
+.qr-label { font-family: 'Space Grotesk', sans-serif; font-size: 11px; letter-spacing: .18em;
+            text-transform: uppercase; color: rgba(255,255,255,.9); font-weight: 700; }
+.qr-box { margin: 15px auto 0; width: 210px; background: #fff; border-radius: 18px;
+          padding: 16px; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+.qr-box svg { display: block; width: 100%; height: auto; }
+.qr-footer { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 15px; }
+.qr-cust-name { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: #fff; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #999; flex-shrink: 0; }
+.live-dot.on { background: #bbf7d0; animation: qosPulse 1.8s ease-in-out infinite; }
+.live-txt { font-size: 12px; color: rgba(255,255,255,.8); font-weight: 500; }
+.reward-banner { display: flex; align-items: center; gap: 14px;
+                 background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.4);
+                 border-radius: 18px; padding: 16px; }
+.reward-icon { flex: none; width: 44px; height: 44px; border-radius: 13px; background: #34d399;
+               display: flex; align-items: center; justify-content: center; color: #04243f;
+               animation: qosPop .5s ease both; }
+.reward-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #fff; }
+.reward-sub { font-size: 12.5px; color: rgba(255,255,255,.7); margin-top: 2px; }
+.stamp-card { border: 1px solid rgba(255,255,255,.1); border-radius: 20px;
+              padding: 18px 18px 16px; background: rgba(255,255,255,.03); }
+.stamp-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.stamp-card-title { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+                    color: rgba(255,255,255,.55); font-weight: 600; }
+.stamp-card-count { font-size: 13px; color: rgba(255,255,255,.8); font-weight: 700; }
+.stamp-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.stamp-slot { aspect-ratio: 1; border-radius: 50%; background: rgba(255,255,255,.05);
+              display: flex; align-items: center; justify-content: center; }
+.stamp-slot.filled { background: #094582; box-shadow: 0 3px 8px rgba(9,69,130,.3); }
+.points-section { border: 1px solid rgba(255,255,255,.1); border-radius: 20px;
+                  padding: 18px 18px 4px; background: rgba(255,255,255,.03); }
+.points-section-title { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+                        color: rgba(255,255,255,.55); font-weight: 600; margin-bottom: 12px; }
+.pts-reward { display: flex; align-items: center; justify-content: space-between;
+              padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 14px; }
+.pts-reward:last-child { border-bottom: none; margin-bottom: 14px; }
+.pts-reward-name { color: #eaf2fb; font-weight: 600; }
+.pts-reward-cost { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.55); }
+.pts-reward-cost.ready { color: #34d399; }
+.activity-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px;
+                  font-weight: 700; color: #fff; margin-bottom: 10px; }
+.act-row { display: flex; align-items: center; gap: 12px; padding: 12px 0;
+           border-bottom: 1px solid rgba(255,255,255,.08); }
+.act-row:last-child { border-bottom: none; }
+.act-label { font-size: 14px; font-weight: 600; color: #eaf2fb; }
+.act-tag { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.act-tag.earn { color: #7fd0ff; }
+.act-tag.redeem { color: #5fc4ff; }
+.act-empty { font-size: 13px; color: rgba(255,255,255,.35); padding: 8px 0; }
+.wallet-btns { display: flex; gap: 10px; }
+.wallet-btns button { flex: 1; cursor: pointer; font-family: 'Manrope', sans-serif;
+                      font-weight: 700; font-size: 13px; padding: 13px; border-radius: 13px;
+                      transition: background .15s; }
+.btn-apple { display: none; }
+.btn-google { border: none; background: #fff; color: #061d33; }
+.btn-google:hover { background: #eaf6ff; }
+.tip { text-align: center; font-size: 12px; color: rgba(255,255,255,.45); line-height: 1.5; }
+.tip b { color: rgba(255,255,255,.7); }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0a3e6c;
+         color: #fff; padding: 12px 20px; border-radius: 10px; font-size: .85rem; opacity: 0;
+         transition: opacity .3s; max-width: 90%; text-align: center; pointer-events: none; }
+.toast.show { opacity: 1; }
+/* PWA install banner — slides up from bottom */
+.install-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(110%);
+               width: 100%; max-width: 480px; background: #0a3352;
+               border-top: 1px solid rgba(95,196,255,.22); padding: 14px 18px;
+               display: flex; align-items: center; gap: 12px; z-index: 200;
+               transition: transform .35s cubic-bezier(.2,.8,.4,1); }
+.install-bar.visible { transform: translateX(-50%) translateY(0); }
+.install-bar-icon { width: 38px; height: 38px; border-radius: 9px; background: #fff;
+                    flex-shrink: 0; padding: 3px; object-fit: contain; }
+.install-bar-text { flex: 1; min-width: 0; }
+.install-bar-title { font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #fff; }
+.install-bar-sub { font-size: 11.5px; color: rgba(255,255,255,.6); margin-top: 2px; }
+.install-bar-btn { border: none; cursor: pointer; background: #009fff; color: #04243f;
+                   font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12.5px;
+                   padding: 9px 15px; border-radius: 9px; white-space: nowrap; flex-shrink: 0; }
+.install-bar-close { background: none; border: none; color: rgba(255,255,255,.45); cursor: pointer;
+                     font-size: 22px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="card-header">
+    <img src="/logo.png" alt="QOSFC" class="hdr-logo">
+    <div>
+      <div class="hdr-sub">Welcome back</div>
+      <div class="hdr-name" id="custName">Loading…</div>
+    </div>
+  </div>
+
+  <div class="card-body">
+
+    <div class="qr-hero">
+      <div class="qr-glow"></div>
+      <div class="qr-inner">
+        <div class="qr-label">Scan to earn &amp; redeem</div>
+        <div class="qr-box"><div id="qr"></div></div>
+        <div class="qr-footer">
+          <span class="qr-cust-name" id="qrName"></span>
+          <span class="live-dot" id="liveDot"></span>
+          <span class="live-txt" id="liveTxt">connecting…</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="rewardBanners"></div>
+    <div id="stampCards"></div>
+    <div id="pointsRewards"></div>
+
+    <div>
+      <div class="activity-title">Recent activity</div>
+      <div id="activity"></div>
+    </div>
+
+    <div class="wallet-btns">
+      <button class="btn-apple" id="appleBtn">Add to Apple Wallet</button>
+      <button class="btn-google" id="googleBtn">Add to Google Wallet</button>
+    </div>
+
+    <div class="tip" id="homescreenTip">Tip: use <b>Add to Home Screen</b> to keep your card one tap away.</div>
+
+  </div>
+</div>
+
+<div class="install-bar" id="installBar">
+  <img src="/logo.png" alt="" class="install-bar-icon">
+  <div class="install-bar-text">
+    <div class="install-bar-title">Add to Home Screen</div>
+    <div class="install-bar-sub" id="installSub">Keep your card one tap away</div>
+  </div>
+  <button class="install-bar-btn" id="installBtn">Add</button>
+  <button class="install-bar-close" id="installClose" aria-label="Dismiss">&#x2715;</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/lib/qrcode.js"></script>
+<script>
+const token = location.pathname.split('/').pop();
+
+// Inject dynamic manifest so Chrome can match start_url to this card's URL
+(function () {
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = '/api/manifest/' + token;
+  document.head.appendChild(link);
+}());
+
+const BALL_EMPTY = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none"><path d="M7 3h10l-1.5 7.5Q14 14 12 14q-2 0-3.5-3.5Z" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.45)" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 5.5H4.5a2 2 0 0 0 0 4H7M17 5.5h2.5a2 2 0 0 0 0 4H17" stroke="rgba(255,255,255,.45)" stroke-width="1.2" stroke-linecap="round"/><path d="M12 14v4" stroke="rgba(255,255,255,.45)" stroke-width="1.2" stroke-linecap="round"/><path d="M9 21h6" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+
+const BALL_FILLED = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none"><path d="M7 3h10l-1.5 7.5Q14 14 12 14q-2 0-3.5-3.5Z" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 5.5H4.5a2 2 0 0 0 0 4H7M17 5.5h2.5a2 2 0 0 0 0 4H17" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><path d="M12 14v4" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><path d="M9 21h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+
+(function drawQr() {
+  const qr = qrcode(0, 'M');
+  qr.addData(location.origin + '/card/' + token);
+  qr.make();
+  document.getElementById('qr').innerHTML = qr.createSvgTag({ scalable: true, margin: 0 });
+})();
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function render(d) {
+  if (d.name) {
+    document.getElementById('custName').textContent = d.name;
+    document.getElementById('qrName').textContent = d.name;
+  }
+
+  const stampRewards = (d.rewards || []).filter(r => r.type === 'stamp');
+  const pointsRewards = (d.rewards || []).filter(r => r.type !== 'stamp');
+  const pts = d.points || 0;
+
+  // Ready banners
+  document.getElementById('rewardBanners').innerHTML = stampRewards
+    .filter(r => pts >= r.pointsCost)
+    .map(r => `<div class="reward-banner">
+      <div class="reward-icon">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 8.6 15.23 10.95 14 14.75 10 14.75 8.77 10.95Z" fill="currentColor" stroke="none"/>
+          <path d="M12 8.6V3.4M15.23 10.95 20.18 9.34M14 14.75 17.06 18.96M10 14.75 6.94 18.96M8.77 10.95 3.82 9.34"/>
+        </svg>
+      </div>
+      <div>
+        <div class="reward-title">${r.name} ready</div>
+        <div class="reward-sub">Card complete — scan above to claim it.</div>
+      </div>
+    </div>`).join('');
+
+  // Stamp grids
+  document.getElementById('stampCards').innerHTML = stampRewards.map(r => {
+    const slots = r.pointsCost;
+    const filled = Math.min(pts, slots);
+    const cells = Array.from({ length: slots }, (_, i) =>
+      `<div class="stamp-slot ${i < filled ? 'filled' : ''}">${i < filled ? BALL_FILLED : BALL_EMPTY}</div>`
+    ).join('');
+    return `<div class="stamp-card">
+      <div class="stamp-card-header">
+        <span class="stamp-card-title">${r.name}</span>
+        <span class="stamp-card-count">${filled} / ${slots}</span>
+      </div>
+      <div class="stamp-grid">${cells}</div>
+    </div>`;
+  }).join('');
+
+  // Points rewards
+  const prEl = document.getElementById('pointsRewards');
+  if (pointsRewards.length === 0) {
+    prEl.innerHTML = '';
+  } else {
+    prEl.innerHTML = `<div class="points-section">
+      <div class="points-section-title">Points rewards</div>
+      ${pointsRewards.map(r => {
+        const ready = pts >= r.pointsCost;
+        return `<div class="pts-reward">
+          <span class="pts-reward-name">${r.name}${ready ? ' ✓' : ''}</span>
+          <span class="pts-reward-cost ${ready ? 'ready' : ''}">${r.pointsCost} pts</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Activity
+  const acts = d.activity || [];
+  document.getElementById('activity').innerHTML = acts.length === 0
+    ? '<div class="act-empty">No activity yet — show your QR at the till!</div>'
+    : acts.map(a => {
+        const isRedeem = a.points < 0 || a.type === 'redeem';
+        const isStamp = a.type === 'stamp';
+        let tag, tagClass;
+        if (isRedeem) { tag = '★ Reward'; tagClass = 'redeem'; }
+        else if (isStamp) { tag = `+${a.points} ⚽`; tagClass = 'earn'; }
+        else { tag = `+${a.points} pts`; tagClass = 'earn'; }
+        return `<div class="act-row">
+          <div style="flex:1"><div class="act-label">${a.description || a.type}</div></div>
+          <div class="act-tag ${tagClass}">${tag}</div>
+        </div>`;
+      }).join('');
+}
+
+async function load() {
+  const res = await fetch('/api/customer/' + token);
+  if (!res.ok) { document.getElementById('custName').textContent = 'Card not found'; return; }
+  try { localStorage.setItem('myCardToken', token); } catch (e) {}
+  render(await res.json());
+}
+
+function connect() {
+  const es = new EventSource('/api/events/' + token);
+  const dot = document.getElementById('liveDot');
+  const txt = document.getElementById('liveTxt');
+  es.onopen = () => { dot.classList.add('on'); txt.textContent = 'live'; };
+  es.onmessage = e => render(JSON.parse(e.data));
+  es.onerror = () => { dot.classList.remove('on'); txt.textContent = 'reconnecting…'; };
+}
+
+async function wallet(platform) {
+  const btn = document.getElementById(platform + 'Btn');
+  btn.textContent = 'Loading…';
+  try {
+    const res = await fetch(`/api/wallet/${platform}/${token}`);
+    const d = await res.json();
+    if (res.status === 501) {
+      toast('Not configured yet — ask the shop to set up ' + (platform === 'apple' ? 'Apple' : 'Google') + ' Wallet.');
+    } else if (d.url) {
+      location.href = d.url;
+    } else if (d.error) {
+      toast(d.error);
+    }
+  } finally {
+    btn.textContent = platform === 'apple' ? 'Add to Apple Wallet' : 'Add to Google Wallet';
+  }
+}
+document.getElementById('appleBtn').onclick = () => wallet('apple');
+document.getElementById('googleBtn').onclick = () => wallet('google');
+
+(async () => {
+  const res = await fetch('/api/admin/wallet-status');
+  if (res.ok) {
+    const d = await res.json();
+    if (!d.googleConfigured) {
+      const btn = document.getElementById('googleBtn');
+      btn.style.opacity = '0.4';
+      btn.title = 'Google Wallet not configured';
+    }
+  }
+})();
+
+// Service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// PWA install banner
+(function () {
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    // Already installed — hide the tip
+    const tip = document.getElementById('homescreenTip');
+    if (tip) tip.style.display = 'none';
+    return;
+  }
+  const bar = document.getElementById('installBar');
+  const btn = document.getElementById('installBtn');
+  const sub = document.getElementById('installSub');
+  const tip = document.getElementById('homescreenTip');
+
+  const showBar = () => {
+    bar.classList.add('visible');
+    document.body.classList.add('install-bar-visible');
+    if (tip) tip.style.display = 'none';
+  };
+  const dismiss = () => {
+    bar.classList.remove('visible');
+    document.body.classList.remove('install-bar-visible');
+    try { sessionStorage.setItem('pwaHintDismissed', '1'); } catch (e) {}
+  };
+  document.getElementById('installClose').onclick = dismiss;
+
+  // Android Chrome / Chromium Edge
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    sub.textContent = 'Keep your card one tap away';
+    showBar();
+    btn.onclick = async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      const { outcome } = await deferred.userChoice;
+      deferred = null;
+      if (outcome === 'accepted') {
+        bar.classList.remove('visible');
+        document.body.classList.remove('install-bar-visible');
+      }
+    };
+  });
+
+  // iOS Safari — no beforeinstallprompt; show share tip once per session
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    try { if (sessionStorage.getItem('pwaHintDismissed')) return; } catch (e) {}
+    sub.textContent = 'Tap Share → Add to Home Screen';
+    btn.textContent = 'Got it';
+    btn.onclick = dismiss;
+    showBar();
+  }
+}());
+
+load();
+connect();
+</script>
+</body>
+</html>

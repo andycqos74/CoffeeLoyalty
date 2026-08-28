@@ -1,0 +1,11 @@
+{
+  "name": "QOSFC Loyalty Till",
+  "short_name": "Till",
+  "start_url": "/shop/",
+  "display": "standalone",
+  "background_color": "#094582",
+  "theme_color": "#094582",
+  "icons": [
+    { "src": "/logo.jpg", "sizes": "any", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
