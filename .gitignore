@@ -1,56 +1,46 @@
-# ── Dependencies ──────────────────────────────────────────────────────────────
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.pnp
-.pnp.js
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
+# ── Build output ──────────────────────────────────────────────────────────────
+bin/
+obj/
+publish/
+out/
 
-# ── Environment & Secrets ─────────────────────────────────────────────────────
-# These files commonly hold DB connection strings, API keys, and passwords.
-# NEVER commit these to source control.
+# ── Visual Studio / Rider ─────────────────────────────────────────────────────
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+.idea/
+
+# ── ASP.NET Core Secrets ──────────────────────────────────────────────────────
+# appsettings.json is safe to commit ONLY if it contains no real secrets.
+# appsettings.Development.json almost always has local connection strings — ignore it.
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.*.json
+# Keep the base appsettings.json only if it has no secrets (review before committing).
+# If it contains real connection strings, uncomment the next line:
+# appsettings.json
+
+# ── .NET User Secrets ─────────────────────────────────────────────────────────
+secrets.json
+**/secrets.json
+
+# ── Environment & config files ────────────────────────────────────────────────
 .env
-.env.local
-.env.development
-.env.development.local
-.env.test
-.env.test.local
-.env.production
-.env.production.local
-.env.staging
-.env.staging.local
 .env.*
+*.env
+local.settings.json
 
-# ── Database configuration ────────────────────────────────────────────────────
-config/database.js
-config/database.json
-config/db.js
-config/db.json
-knexfile.js
-ormconfig.json
-ormconfig.js
-ormconfig.ts
-
-# ── Firebase / Google Services ────────────────────────────────────────────────
+# ── Google / Firebase credentials ────────────────────────────────────────────
 *-service-account*.json
 *serviceAccountKey*.json
 firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
-
-# ── Cloud provider credentials ────────────────────────────────────────────────
-.aws/
-.azure/
-credentials.json
-secrets.json
-secret.json
-*secrets*.json
-*secret*.json
+*credentials*.json
 
 # ── SSL / TLS Certificates & Keys ─────────────────────────────────────────────
 *.pem
@@ -61,46 +51,42 @@ secret.json
 *.pfx
 *.der
 *.ca-bundle
+*.cer
 
-# ── JWT / Auth tokens ─────────────────────────────────────────────────────────
-*.token
-auth.json
-jwt.json
+# ── Cloud provider credentials ────────────────────────────────────────────────
+.aws/
+.azure/
+credentials.json
+
+# ── SQLite database files ─────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── NuGet ─────────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+artifacts/
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 logs/
 *.log
 
-# ── Build output ──────────────────────────────────────────────────────────────
-dist/
-build/
-out/
-.next/
-.nuxt/
-.cache/
-.parcel-cache/
+# ── Large / generated files that shouldn't be in git ─────────────────────────
+*.zip
+design_handoff_loyalty_option2/
 
-# ── Testing & Coverage ────────────────────────────────────────────────────────
-coverage/
-.nyc_output/
-
-# ── Runtime / Temp files ──────────────────────────────────────────────────────
-*.pid
-*.seed
-*.pid.lock
-tmp/
-temp/
+# ── Node (if any frontend tooling exists) ─────────────────────────────────────
+node_modules/
+npm-debug.log*
 
 # ── OS files ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 Desktop.ini
 
-# ── IDE / Editor ──────────────────────────────────────────────────────────────
-.vscode/
+# ── JetBrains ─────────────────────────────────────────────────────────────────
 .idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+*.DotSettings.user
