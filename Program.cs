@@ -638,6 +638,45 @@ app.MapGet("/api/admin/customers", (HttpRequest req) =>
     return Results.Ok(list);
 });
 
+// Combined activity log across all customers: signups, earns, redemptions, adjustments
+app.MapGet("/api/admin/activity", (HttpRequest req, int? limit) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var lim = Math.Clamp(limit ?? 200, 1, 1000);
+    using var c = Open();
+    var cmd = c.CreateCommand();
+    cmd.CommandText = """
+        SELECT * FROM (
+            SELECT cu.id AS customer_id, cu.name AS customer_name,
+                   'signup' AS type, 0 AS amount_pence, 0 AS points,
+                   NULL AS description, cu.created_at AS created_at
+            FROM customers cu
+            UNION ALL
+            SELECT t.customer_id, cu.name,
+                   t.type, t.amount_pence, t.points,
+                   t.description, t.created_at
+            FROM transactions t JOIN customers cu ON cu.id = t.customer_id
+        )
+        ORDER BY created_at DESC, customer_id DESC
+        LIMIT $lim
+        """;
+    cmd.Parameters.AddWithValue("$lim", lim);
+    var list = new List<object>();
+    using var r = cmd.ExecuteReader();
+    while (r.Read())
+        list.Add(new
+        {
+            customerId = r.GetInt64(0),
+            customerName = r.GetString(1),
+            type = r.GetString(2),
+            amountPence = r.GetInt64(3),
+            points = r.GetInt64(4),
+            description = r.IsDBNull(5) ? null : r.GetString(5),
+            createdAt = r.GetString(6)
+        });
+    return Results.Ok(list);
+});
+
 app.MapGet("/api/admin/customer/{id:long}", (long id, HttpRequest req) =>
 {
     if (!PinOk(req, "admin_pin")) return Unauthorized();
