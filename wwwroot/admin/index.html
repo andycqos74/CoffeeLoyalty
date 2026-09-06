@@ -44,6 +44,12 @@
   .kpi .l { font-size:.75rem; color:#999; text-transform:uppercase; letter-spacing:.05em; }
   h2 { color:var(--brown); font-size:1.05rem; }
   a.back { color:var(--accent); text-decoration:none; font-size:.9rem; cursor:pointer; }
+  .legend-sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .chart { width:100%; overflow-x:auto; }
+  .chart svg { display:block; }
+  .chart .bar-label { font-size:.7rem; fill:#667; }
+  .chart .axis-label { font-size:.72rem; fill:#889; }
+  .chart .grid-line { stroke:#e4eaf5; stroke-width:1; }
 </style>
 </head>
 <body>
@@ -55,7 +61,8 @@
   <button class="small hidden" id="lockBtn">Lock</button>
 </header>
 <nav id="tabs" class="hidden">
-  <button data-tab="customers" class="on">Customers</button>
+  <button data-tab="dashboard" class="on">Dashboard</button>
+  <button data-tab="customers">Customers</button>
   <button data-tab="activity">Activity</button>
   <button data-tab="rewards">Rewards</button>
   <button data-tab="settings">Settings</button>
@@ -66,6 +73,26 @@
     <input id="pin" type="password" inputmode="numeric" placeholder="••••">
     <button class="act" id="loginBtn">Sign in</button>
     <div class="err" id="loginErr"></div>
+  </div>
+
+  <div id="dashboard" class="hidden">
+    <div class="kpis" id="dashKpis"></div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0 0 4px">Signups — last 7 days</h2>
+      </div>
+      <div id="chartSignups" class="chart"></div>
+    </div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <h2 style="margin:0">Points earned vs redeemed — last 7 days</h2>
+        <div style="font-size:.8rem;color:#666;display:flex;gap:14px">
+          <span><span class="legend-sw" style="background:var(--green)"></span>Earned</span>
+          <span><span class="legend-sw" style="background:var(--red)"></span>Redeemed</span>
+        </div>
+      </div>
+      <div id="chartPoints" class="chart"></div>
+    </div>
   </div>
 
   <div id="customers" class="hidden">
@@ -215,10 +242,11 @@ async function api(path, opts = {}) {
 
 function fmtMoney(p) { return '£' + (p / 100).toFixed(2); }
 function showTab(tab) {
-  for (const t of ['customers','activity','detail','rewards','settings']) $(t).classList.add('hidden');
+  for (const t of ['dashboard','customers','activity','detail','rewards','settings']) $(t).classList.add('hidden');
   $(tab).classList.remove('hidden');
   for (const b of document.querySelectorAll('nav button'))
     b.classList.toggle('on', b.dataset.tab === tab);
+  if (tab === 'dashboard') loadDashboard();
   if (tab === 'customers') loadCustomers();
   if (tab === 'activity') loadActivity();
   if (tab === 'rewards') loadRewards();
@@ -240,7 +268,70 @@ function boot() {
   $('loginBox').classList.add('hidden');
   $('tabs').classList.remove('hidden');
   $('lockBtn').classList.remove('hidden');
-  showTab('customers');
+  showTab('dashboard');
+}
+
+function fmtDate(s) { return s ? s.split(' ')[0] : '—'; }
+
+// Minimal dependency-free SVG bar / combo chart for the 7-day dashboard series.
+// `bars` is a list of {key, color}; `line` (optional) is a single {key, color} rendered as a line+points.
+function renderChart(el, series, bars, line) {
+  const W = Math.max(560, series.length * 80), H = 220;
+  const padL = 34, padR = 12, padT = 16, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const allVals = series.flatMap(d => bars.map(b => d[b.key]).concat(line ? [d[line.key]] : []));
+  const max = Math.max(1, ...allVals);
+  const step = plotW / series.length;
+  const groupW = step * 0.6;
+  const barW = groupW / bars.length;
+  const y = v => padT + plotH - (v / max) * plotH;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+  // gridlines + y-axis labels (0, mid, max)
+  for (const frac of [0, 0.5, 1]) {
+    const gy = padT + plotH - frac * plotH;
+    svg += `<line class="grid-line" x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}"/>`;
+    svg += `<text class="axis-label" x="${padL - 6}" y="${gy + 3}" text-anchor="end">${Math.round(max * frac)}</text>`;
+  }
+  // bars
+  series.forEach((d, i) => {
+    const gx = padL + i * step + (step - groupW) / 2;
+    bars.forEach((b, bi) => {
+      const v = d[b.key];
+      const bx = gx + bi * barW;
+      const by = y(v);
+      svg += `<rect x="${bx + 1}" y="${by}" width="${Math.max(0, barW - 2)}" height="${padT + plotH - by}" fill="${b.color}" rx="2"><title>${d.label}: ${b.label || b.key} ${v}</title></rect>`;
+      if (v > 0) svg += `<text class="bar-label" x="${bx + barW / 2}" y="${by - 4}" text-anchor="middle">${v}</text>`;
+    });
+    svg += `<text class="axis-label" x="${padL + i * step + step / 2}" y="${H - 10}" text-anchor="middle">${d.label}</text>`;
+  });
+  // optional line series (e.g. redeemed) drawn across the bar groups
+  if (line) {
+    const pts = series.map((d, i) => [padL + i * step + step / 2, y(d[line.key])]);
+    svg += `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${line.color}" stroke-width="2"/>`;
+    pts.forEach((p, i) => {
+      const v = series[i][line.key];
+      svg += `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${line.color}"><title>${series[i].label}: ${line.label || line.key} ${v}</title></circle>`;
+    });
+  }
+  svg += `</svg>`;
+  el.innerHTML = svg;
+}
+
+async function loadDashboard() {
+  const d = await api('/api/admin/dashboard');
+  $('dashKpis').innerHTML = `
+    <div class="kpi"><div class="v">${d.memberCount}</div><div class="l">Members</div></div>
+    <div class="kpi"><div class="v" style="font-size:1.1rem">${d.lastMember ? d.lastMember.name : '—'}</div><div class="l">Last member joined ${d.lastMember ? fmtDate(d.lastMember.createdAt) : ''}</div></div>
+    <div class="kpi"><div class="v">${d.totalEarned}</div><div class="l">Points earned</div></div>
+    <div class="kpi"><div class="v" style="font-size:1.1rem">${fmtDate(d.lastEarnedAt)}</div><div class="l">Last earned</div></div>
+    <div class="kpi"><div class="v">${d.totalRedeemed}</div><div class="l">Points redeemed</div></div>
+    <div class="kpi"><div class="v" style="font-size:1.1rem">${fmtDate(d.lastRedeemedAt)}</div><div class="l">Last redeemed</div></div>
+    <div class="kpi"><div class="v">${d.outstanding}</div><div class="l">Points outstanding</div></div>`;
+  renderChart($('chartSignups'), d.series, [{ key: 'signups', color: '#1a6abf', label: 'Signups' }]);
+  renderChart($('chartPoints'), d.series,
+    [{ key: 'earned', color: '#2e8b57', label: 'Earned' }],
+    { key: 'redeemed', color: '#c0392b', label: 'Redeemed' });
 }
 
 async function loadCustomers() {
@@ -303,7 +394,7 @@ async function openDetail(id) {
         <td>${a.amountPence ? fmtMoney(a.amountPence) : ''}</td>
         <td class="${a.points >= 0 ? 'pts-plus' : 'pts-minus'}">${a.points >= 0 ? '+' : ''}${a.points}</td></tr>`).join('')
     || '<tr><td colspan="4" style="color:#999">No activity</td></tr>';
-  for (const t of ['customers','activity','rewards','settings']) $(t).classList.add('hidden');
+  for (const t of ['dashboard','customers','activity','rewards','settings']) $(t).classList.add('hidden');
   $('detail').classList.remove('hidden');
 }
 $('backToList').onclick = () => showTab('customers');
