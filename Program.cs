@@ -96,6 +96,21 @@ string GetSetting(SqliteConnection c, string key)
     return (string?)cmd.ExecuteScalar() ?? "";
 }
 
+long ScalarLong(SqliteConnection c, string sql)
+{
+    var cmd = c.CreateCommand();
+    cmd.CommandText = sql;
+    var val = cmd.ExecuteScalar();
+    return val is null or DBNull ? 0 : Convert.ToInt64(val);
+}
+
+string? ScalarText(SqliteConnection c, string sql)
+{
+    var cmd = c.CreateCommand();
+    cmd.CommandText = sql;
+    return cmd.ExecuteScalar() as string;
+}
+
 long PointsBalance(SqliteConnection c, long customerId)
 {
     var cmd = c.CreateCommand();
@@ -612,6 +627,67 @@ app.MapPost("/api/admin/login", (JsonElement body) =>
     using var c = Open();
     var ok = body.TryGetProperty("pin", out var p) && p.GetString() == GetSetting(c, "admin_pin");
     return ok ? Results.Ok(new { ok = true }) : Unauthorized();
+});
+
+// Dashboard: headline KPIs plus a 7-day daily breakdown of signups / points earned / points redeemed
+app.MapGet("/api/admin/dashboard", (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    using var c = Open();
+
+    var memberCount = ScalarLong(c, "SELECT COUNT(*) FROM customers");
+    object? lastMember = null;
+    {
+        var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT name, created_at FROM customers ORDER BY created_at DESC, id DESC LIMIT 1";
+        using var r = cmd.ExecuteReader();
+        if (r.Read()) lastMember = new { name = r.GetString(0), createdAt = r.GetString(1) };
+    }
+    var totalEarned = ScalarLong(c, "SELECT COALESCE(SUM(points),0) FROM transactions WHERE type = 'earn'");
+    var lastEarnedAt = ScalarText(c, "SELECT MAX(created_at) FROM transactions WHERE type = 'earn'");
+    var totalRedeemed = ScalarLong(c, "SELECT COALESCE(SUM(-points),0) FROM transactions WHERE type = 'redeem'");
+    var lastRedeemedAt = ScalarText(c, "SELECT MAX(created_at) FROM transactions WHERE type = 'redeem'");
+    var outstanding = ScalarLong(c, "SELECT COALESCE(SUM(points),0) FROM transactions");
+
+    // Last 7 calendar days (oldest first), each labelled with its weekday
+    var today = DateTime.UtcNow.Date;
+    var days = Enumerable.Range(0, 7).Select(i => today.AddDays(-6 + i)).ToList();
+    var cutoff = days[0].ToString("yyyy-MM-dd");
+
+    Dictionary<string, long> ByDay(string sql)
+    {
+        var cmd = c.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("$cutoff", cutoff);
+        var map = new Dictionary<string, long>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetString(0)] = r.GetInt64(1);
+        return map;
+    }
+    var signupsByDay = ByDay("SELECT date(created_at) AS d, COUNT(*) FROM customers WHERE date(created_at) >= $cutoff GROUP BY d");
+    var earnedByDay = ByDay("SELECT date(created_at) AS d, COALESCE(SUM(points),0) FROM transactions WHERE type = 'earn' AND date(created_at) >= $cutoff GROUP BY d");
+    var redeemedByDay = ByDay("SELECT date(created_at) AS d, COALESCE(SUM(-points),0) FROM transactions WHERE type = 'redeem' AND date(created_at) >= $cutoff GROUP BY d");
+
+    var series = days.Select(d =>
+    {
+        var key = d.ToString("yyyy-MM-dd");
+        return new
+        {
+            date = key,
+            label = d.ToString("ddd d MMM"),
+            signups = signupsByDay.GetValueOrDefault(key, 0),
+            earned = earnedByDay.GetValueOrDefault(key, 0),
+            redeemed = redeemedByDay.GetValueOrDefault(key, 0)
+        };
+    }).ToList();
+
+    return Results.Ok(new
+    {
+        memberCount, lastMember,
+        totalEarned, lastEarnedAt,
+        totalRedeemed, lastRedeemedAt,
+        outstanding, series
+    });
 });
 
 app.MapGet("/api/admin/customers", (HttpRequest req) =>
