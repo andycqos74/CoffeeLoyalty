@@ -729,7 +729,7 @@ app.MapGet("/api/admin/dashboard", (HttpRequest req, string? range) =>
     var redeemedByWeekday = GroupByWeekday("SELECT CAST(strftime('%w', created_at) AS INTEGER) AS w, COALESCE(SUM(-points),0) FROM transactions WHERE type = 'redeem' AND date(created_at) BETWEEN $from AND $to GROUP BY w");
 
     // SQLite's strftime('%w') is 0=Sunday..6=Saturday; present Monday..Sunday
-    var weekdayOrder = new[] { (label: "Mon", w: 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6), ("Sun", 0) };
+    var weekdayOrder = new (string label, int w)[] { ("Mon", 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6), ("Sun", 0) };
     var byWeekday = weekdayOrder.Select(wd => new
     {
         label = wd.label,
