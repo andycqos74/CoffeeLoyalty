@@ -56,6 +56,7 @@
 </header>
 <nav id="tabs" class="hidden">
   <button data-tab="customers" class="on">Customers</button>
+  <button data-tab="activity">Activity</button>
   <button data-tab="rewards">Rewards</button>
   <button data-tab="settings">Settings</button>
 </nav>
@@ -72,6 +73,22 @@
     <div class="panel" style="padding:0"><table id="custTable">
       <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Total spend</th><th>Points</th></tr></thead>
       <tbody></tbody></table></div>
+  </div>
+
+  <div id="activity" class="hidden">
+    <div class="row" style="margin-bottom:0">
+      <select id="actFilter" style="width:180px">
+        <option value="">All activity</option>
+        <option value="signup">Signups</option>
+        <option value="earn">Earned</option>
+        <option value="redeem">Redeemed</option>
+        <option value="adjust">Adjustments</option>
+      </select>
+      <button class="small" id="actRefresh">Refresh</button>
+    </div>
+    <div class="panel" style="padding:0"><table>
+      <thead><tr><th>When</th><th>Customer</th><th>Type</th><th>Description</th><th>Amount</th><th>Points</th></tr></thead>
+      <tbody id="actBody"></tbody></table></div>
   </div>
 
   <div id="detail" class="hidden">
@@ -198,11 +215,12 @@ async function api(path, opts = {}) {
 
 function fmtMoney(p) { return '£' + (p / 100).toFixed(2); }
 function showTab(tab) {
-  for (const t of ['customers','detail','rewards','settings']) $(t).classList.add('hidden');
+  for (const t of ['customers','activity','detail','rewards','settings']) $(t).classList.add('hidden');
   $(tab).classList.remove('hidden');
   for (const b of document.querySelectorAll('nav button'))
     b.classList.toggle('on', b.dataset.tab === tab);
   if (tab === 'customers') loadCustomers();
+  if (tab === 'activity') loadActivity();
   if (tab === 'rewards') loadRewards();
   if (tab === 'settings') loadSettings();
 }
@@ -243,6 +261,32 @@ async function loadCustomers() {
   tb.querySelectorAll('tr.click').forEach(r => r.onclick = () => openDetail(r.dataset.id));
 }
 
+const TYPE_LABELS = {
+  signup: { label: 'Signup', cls: 'off' },
+  earn: { label: 'Earned', cls: 'on' },
+  redeem: { label: 'Redeemed', cls: 'off' },
+  adjust: { label: 'Adjusted', cls: 'off' }
+};
+async function loadActivity() {
+  const list = await api('/api/admin/activity?limit=300');
+  const filter = $('actFilter').value;
+  const filtered = filter ? list.filter(a => a.type === filter) : list;
+  $('actBody').innerHTML = filtered.map(a => {
+    const t = TYPE_LABELS[a.type] || { label: a.type, cls: 'off' };
+    const desc = a.type === 'signup' ? 'Joined the loyalty programme' : (a.description || '');
+    return `<tr class="click" data-id="${a.customerId}">
+      <td>${a.createdAt}</td>
+      <td><b>${a.customerName}</b></td>
+      <td><span class="badge ${t.cls}">${t.label}</span></td>
+      <td>${desc}</td>
+      <td>${a.amountPence ? fmtMoney(a.amountPence) : ''}</td>
+      <td class="${a.points > 0 ? 'pts-plus' : a.points < 0 ? 'pts-minus' : ''}">${a.points ? (a.points > 0 ? '+' : '') + a.points : ''}</td></tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:#999">No activity yet</td></tr>';
+  $('actBody').querySelectorAll('tr.click').forEach(r => r.onclick = () => openDetail(r.dataset.id));
+}
+$('actFilter').onchange = loadActivity;
+$('actRefresh').onclick = loadActivity;
+
 let curCustomer = null;
 async function openDetail(id) {
   const d = await api('/api/admin/customer/' + id);
@@ -259,7 +303,7 @@ async function openDetail(id) {
         <td>${a.amountPence ? fmtMoney(a.amountPence) : ''}</td>
         <td class="${a.points >= 0 ? 'pts-plus' : 'pts-minus'}">${a.points >= 0 ? '+' : ''}${a.points}</td></tr>`).join('')
     || '<tr><td colspan="4" style="color:#999">No activity</td></tr>';
-  for (const t of ['customers','rewards','settings']) $(t).classList.add('hidden');
+  for (const t of ['customers','activity','rewards','settings']) $(t).classList.add('hidden');
   $('detail').classList.remove('hidden');
 }
 $('backToList').onclick = () => showTab('customers');
