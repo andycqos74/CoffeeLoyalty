@@ -629,8 +629,9 @@ app.MapPost("/api/admin/login", (JsonElement body) =>
     return ok ? Results.Ok(new { ok = true }) : Unauthorized();
 });
 
-// Dashboard: headline KPIs plus a 7-day daily breakdown of signups / points earned / points redeemed
-app.MapGet("/api/admin/dashboard", (HttpRequest req) =>
+// Dashboard: headline KPIs plus a daily and a day-of-week breakdown of signups / points earned / points redeemed
+// for a selectable date range.
+app.MapGet("/api/admin/dashboard", (HttpRequest req, string? range) =>
 {
     if (!PinOk(req, "admin_pin")) return Unauthorized();
     using var c = Open();
@@ -649,27 +650,57 @@ app.MapGet("/api/admin/dashboard", (HttpRequest req) =>
     var lastRedeemedAt = ScalarText(c, "SELECT MAX(created_at) FROM transactions WHERE type = 'redeem'");
     var outstanding = ScalarLong(c, "SELECT COALESCE(SUM(points),0) FROM transactions");
 
-    // Last 7 calendar days (oldest first), each labelled with its weekday
+    // Resolve the selected date range (inclusive, calendar dates) to bucket the charts by
     var today = DateTime.UtcNow.Date;
-    var days = Enumerable.Range(0, 7).Select(i => today.AddDays(-6 + i)).ToList();
-    var cutoff = days[0].ToString("yyyy-MM-dd");
+    int MondayOffset(DateTime d) => ((int)d.DayOfWeek + 6) % 7; // days since Monday (Monday = 0)
+    var thisMonday = today.AddDays(-MondayOffset(today));
+    DateTime from, to = today;
+    switch (range)
+    {
+        case "lastWeek":
+            from = thisMonday.AddDays(-7);
+            to = thisMonday.AddDays(-1); // last Sunday
+            break;
+        case "thisMonth":
+            from = new DateTime(today.Year, today.Month, 1);
+            break;
+        case "last30":
+            from = today.AddDays(-29);
+            break;
+        case "allTime":
+            var minStr = ScalarText(c, "SELECT MIN(d) FROM (SELECT date(created_at) AS d FROM customers UNION ALL SELECT date(created_at) FROM transactions)");
+            from = minStr is null ? today : DateTime.Parse(minStr);
+            break;
+        case "thisWeek":
+        default:
+            range = "thisWeek";
+            from = thisMonday;
+            break;
+    }
+    var fromStr = from.ToString("yyyy-MM-dd");
+    var toStr = to.ToString("yyyy-MM-dd");
 
-    Dictionary<string, long> ByDay(string sql)
+    Dictionary<string, long> GroupByDate(string sql)
     {
         var cmd = c.CreateCommand();
         cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("$cutoff", cutoff);
+        cmd.Parameters.AddWithValue("$from", fromStr);
+        cmd.Parameters.AddWithValue("$to", toStr);
         var map = new Dictionary<string, long>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) map[r.GetString(0)] = r.GetInt64(1);
         return map;
     }
-    var signupsByDay = ByDay("SELECT date(created_at) AS d, COUNT(*) FROM customers WHERE date(created_at) >= $cutoff GROUP BY d");
-    var earnedByDay = ByDay("SELECT date(created_at) AS d, COALESCE(SUM(points),0) FROM transactions WHERE type = 'earn' AND date(created_at) >= $cutoff GROUP BY d");
-    var redeemedByDay = ByDay("SELECT date(created_at) AS d, COALESCE(SUM(-points),0) FROM transactions WHERE type = 'redeem' AND date(created_at) >= $cutoff GROUP BY d");
 
-    var series = days.Select(d =>
+    // Per-calendar-day breakdown across the selected range
+    var signupsByDay = GroupByDate("SELECT date(created_at) AS d, COUNT(*) FROM customers WHERE date(created_at) BETWEEN $from AND $to GROUP BY d");
+    var earnedByDay = GroupByDate("SELECT date(created_at) AS d, COALESCE(SUM(points),0) FROM transactions WHERE type = 'earn' AND date(created_at) BETWEEN $from AND $to GROUP BY d");
+    var redeemedByDay = GroupByDate("SELECT date(created_at) AS d, COALESCE(SUM(-points),0) FROM transactions WHERE type = 'redeem' AND date(created_at) BETWEEN $from AND $to GROUP BY d");
+
+    var dayCount = (int)(to - from).TotalDays + 1;
+    var daily = Enumerable.Range(0, dayCount).Select(i =>
     {
+        var d = from.AddDays(i);
         var key = d.ToString("yyyy-MM-dd");
         return new
         {
@@ -681,12 +712,40 @@ app.MapGet("/api/admin/dashboard", (HttpRequest req) =>
         };
     }).ToList();
 
+    // Same window, totalled by weekday (Mon..Sun) instead of by calendar date
+    Dictionary<int, long> GroupByWeekday(string sql)
+    {
+        var cmd = c.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("$from", fromStr);
+        cmd.Parameters.AddWithValue("$to", toStr);
+        var map = new Dictionary<int, long>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetInt32(0)] = r.GetInt64(1);
+        return map;
+    }
+    var signupsByWeekday = GroupByWeekday("SELECT CAST(strftime('%w', created_at) AS INTEGER) AS w, COUNT(*) FROM customers WHERE date(created_at) BETWEEN $from AND $to GROUP BY w");
+    var earnedByWeekday = GroupByWeekday("SELECT CAST(strftime('%w', created_at) AS INTEGER) AS w, COALESCE(SUM(points),0) FROM transactions WHERE type = 'earn' AND date(created_at) BETWEEN $from AND $to GROUP BY w");
+    var redeemedByWeekday = GroupByWeekday("SELECT CAST(strftime('%w', created_at) AS INTEGER) AS w, COALESCE(SUM(-points),0) FROM transactions WHERE type = 'redeem' AND date(created_at) BETWEEN $from AND $to GROUP BY w");
+
+    // SQLite's strftime('%w') is 0=Sunday..6=Saturday; present Monday..Sunday
+    var weekdayOrder = new[] { (label: "Mon", w: 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6), ("Sun", 0) };
+    var byWeekday = weekdayOrder.Select(wd => new
+    {
+        label = wd.label,
+        signups = signupsByWeekday.GetValueOrDefault(wd.w, 0),
+        earned = earnedByWeekday.GetValueOrDefault(wd.w, 0),
+        redeemed = redeemedByWeekday.GetValueOrDefault(wd.w, 0)
+    }).ToList();
+
     return Results.Ok(new
     {
         memberCount, lastMember,
         totalEarned, lastEarnedAt,
         totalRedeemed, lastRedeemedAt,
-        outstanding, series
+        outstanding,
+        range, rangeFrom = fromStr, rangeTo = toStr,
+        daily, byWeekday
     });
 });
 
