@@ -5,9 +5,9 @@
 serves many establishments, where everything that differs between clients is **configuration or
 data, never a code branch**.
 
-**Recommendation in one line:** parameterise everything (§3), then run **one container per
-establishment** from the same image with its config mounted from git — not a shared multi-tenant
-instance. The reasoning is in §2; the short version is that the parameterisation work is needed
+**Recommendation in one line:** parameterise everything (§3) and expose it through a client-facing
+admin page, then run **one container per establishment** from the same image — not a shared
+multi-tenant instance. The reasoning is in §2; the short version is that the parameterisation work is needed
 either way, and instance-per-client removes the cross-client data-leak bug class by construction
 instead of defending against it forever.
 
@@ -74,29 +74,77 @@ it; the other doesn't.
 
 ### 2.2 Option A in detail — instance per client
 
-**Client configuration lives in git, not in a database.** Each establishment gets a directory:
+**The database is the source of truth; the admin UI is how it gets edited.** Clients self-serve
+their own branding — swap a logo, retint the palette, reword the join-page headline, edit the
+privacy policy — without you deploying anything. Files in git are a *seed* and a *backup*, not the
+master copy.
+
+Resolution order for every configurable value:
+
+```
+code defaults                    (always present, never blank)
+  -> /app/config/client.json     (read-only mount: provisioning seed + theme preset)
+    -> DB `settings` overrides   (what the admin UI writes — wins)
+```
+
+and for every asset:
+
+```
+wwwroot platform default  ->  /app/config/assets/  (seeded)  ->  /app/data/assets/  (uploaded, wins)
+```
+
+Note the asset upload target: **`/app/data/assets/`, on the persisted volume** — not the config
+mount, which is read-only. Uploads survive container restarts and image upgrades because the
+volume does.
 
 ```
 clients/
   qosfc/
-    client.json            # name, theme tokens, copy, programme rules, locale, wallet config
-    assets/{logo.png,hero.jpg,icon-192.png,icon-512.png}
+    client.json            # seed: name, theme preset, copy, programme rules, locale
+    assets/                # seed: starter logo/hero if you have them at provisioning time
   thebakery/
     client.json
-    assets/...
+    assets/
 ```
 
-mounted read-only into that client's container at `/app/config`. At startup the app loads
-`client.json` into its typed config object; `assets/` is served through `/brand/*` with fallback
-to platform defaults. Secrets (the Wallet service-account key) are mounted as a separate file or
-injected as env, **not** stored in the DB — which sidesteps the at-rest encryption problem in §4.4
-entirely rather than solving it.
+What each layer is for:
 
-This gives you something the multi-tenant model does not: **client configuration is reviewable,
-diffable and version-controlled.** You can see in a PR that a client's palette changed, roll it
-back, and reproduce any client exactly from a fresh container. Admin-UI edits write back to the
-DB as an override layer, and a `GET /api/admin/config-export` dumps the merged result so you can
-commit it back.
+- **`client.json`** gets a new client to a presentable state on first boot — their name, a theme
+  preset, sane defaults — so they never see QOSFC branding or a half-built page. After that it is
+  inert; the client edits over the top of it.
+- **`GET /api/admin/config-export`** dumps the live merged config (and an asset manifest) as JSON.
+  Commit it back periodically, or on demand before a risky change. That is your backup, your
+  rollback, and your way to clone one client's setup as another's starting point.
+- **Secrets never go in `client.json`.** The Wallet service-account key is mounted as a separate
+  file or injected as env per container — which sidesteps the at-rest encryption problem in §4.4
+  rather than solving it.
+
+#### 2.2.1 What the admin Branding UI has to cover
+
+This is the deliverable that makes the whole thing work, so it needs to be properly built rather
+than a settings form:
+
+| Control | Edits | Notes |
+|---|---|---|
+| Image upload ×5 | logo, hero, favicon, PWA icons, Wallet logo | drag-drop, instant preview, "revert to default" |
+| Colour pickers | the ~20 tokens in §3.1, grouped (brand / accent / surface / status) | start from a preset, override individually |
+| Theme preset picker | all tokens at once | one click to a vetted palette |
+| Text fields | every string in §3.2 | per-field character limits so the 52px headline cannot overflow |
+| Markdown editor | privacy policy, contact email | seeded from a UK-GDPR template |
+| Programme rules | points rate, currency, quick-spend buttons, stamp icon and noun, timezone | §3.4 |
+| Live preview | join / card / till rendered at phone width, side by side | the single most valuable control here |
+
+Three things this UI must do that a plain settings form would not:
+
+1. **Process uploads on the way in.** Clients will upload 4000px photos straight off a phone. Re-encode, strip EXIF, resize, generate the 192/512/maskable icon variants, cap the stored size. The current 746 KB `latte.png` on the join page's critical path shows what happens without this.
+2. **Cache-bust changed assets.** Serve `/brand/logo?v={contentHash}` and bump the service-worker cache version when any asset changes, or clients will "change the logo" and still see the old one on their own phone. This is the most likely support call.
+3. **Stop a client breaking their own site.** Contrast-check text against background on save and warn; validate text lengths; always offer "reset this section to the preset".
+
+**Decide who edits what.** There is one `admin_pin` today, so whoever holds it sees everything —
+including the Google Wallet issuer credentials. Either accept that, or split the admin surface
+into client-editable (branding, copy, rewards, programme rules) and operator-only (Wallet
+credentials, PIN policy, points rate if you want it contractually fixed). Worth deciding before
+the first external client gets the PIN.
 
 **One compose file, N services.** Do not create N separate compose stacks — that is where the ops
 cost people fear actually comes from. Generate a single file:
@@ -138,21 +186,49 @@ deliberately — per-client timezones and locales (§3.4) need the ICU data.
 
 ### 2.3 What Option A does *not* get you for free
 
-Three things still need fixing even with one container per client:
+Three things still need fixing even with one container per client.
 
-1. **The Google Wallet class ID.** `ClassSuffix` is hardcoded to `loyalty_card`
-   (`GoogleWalletService.cs:29`), so the class is `{issuerId}.loyalty_card`. If your clients share
-   one platform Google issuer account, **every container fights over the same LoyaltyClass** —
-   each one's `EnsureClassExists` does a full `PUT` that overwrites the previous client's issuer
-   name, programme name, logo and background colour. Separate containers do not help; the
-   collision is on Google's servers. The class ID must include the client slug, and the object ID
-   must too. This is a genuine bug the moment there is a second client, unless every client brings
-   their own issuer account.
-2. **PIN brute-forcing.** Blast radius shrinks to one client, but a 4-digit PIN with no rate
-   limiting still leaks that client's entire customer list. Still must be fixed.
-3. **Config bootstrap.** A fresh container currently seeds `settings` with QOSFC's name and PINs
-   `1234`/`9999` (`Program.cs:56–63`). Without the `client.json` load, every new client ships with
-   the wrong name and the same default PINs.
+#### The Google Wallet class ID — isolation does not reach Google's servers
+
+This is the one that is easy to get wrong, so it is worth being precise. `ClassSuffix` is
+hardcoded to `loyalty_card` (`GoogleWalletService.cs:29`), making the class
+`{issuerId}.loyalty_card`.
+
+**Separate compose stacks, separate volumes, separate machines — none of it helps.** The
+LoyaltyClass is a record in Google's API, not on your box. Two containers that hold the same
+`issuerId` compute the same class ID and `PUT` to the same remote resource; whichever ran last
+wins, and every client's pass takes on that client's issuer name, programme name, logo and
+background colour. Isolating the *processes* does nothing about a shared *remote namespace*.
+
+What actually determines whether you have a problem is the issuer account:
+
+| Issuer model | Class ID | Collision? | Client's setup burden |
+|---|---|---|---|
+| Each client has their own Google issuer account | `{issuerA}.loyalty_card`, `{issuerB}.loyalty_card` | **No** — different issuer, different namespace. Current code is fine as-is | The 8-step Google Cloud walkthrough in the admin help text |
+| One platform issuer shared across clients (recommended) | `{issuerId}.loyalty_card` for all | **Yes** — they overwrite each other | None — they never see it |
+
+You want the shared platform issuer, because asking a café owner to create a Google Cloud service
+account and grant it the Wallet Object Issuer role is where onboarding dies. So take the fix: make
+the class suffix configurable, defaulting to `loyalty_{slug}`, and scope the object ID the same
+way. It is a small change and it is exactly the parameterisation this whole plan is about.
+
+**Migration hazard — do not retrofit this to QOSFC.** Existing saved passes reference the object
+ID `{issuerId}.loyalty_{token}`. Change the object ID scheme and `UpsertObject`'s existence check
+misses, so it creates a *new* object while every customer's already-saved pass keeps pointing at
+the old one and silently stops updating. Pin the existing client to its legacy IDs
+(`wallet.class_suffix = "loyalty_card"`, no slug in the object ID) and give only new clients
+slug-scoped IDs. Being able to express that as config rather than a code branch is the point.
+
+#### PIN brute-forcing
+
+Blast radius shrinks to one client, but a 4-digit PIN with no rate limiting still leaks that
+client's entire customer list. Still must be fixed (§5).
+
+#### Config bootstrap
+
+A fresh container seeds `settings` with QOSFC's name and PINs `1234` / `9999`
+(`Program.cs:56–63`). Without the `client.json` seed and generated PINs, every new client ships
+with the wrong branding and identical default credentials.
 
 ### 2.4 Why Option A wins here
 
@@ -168,14 +244,18 @@ Three things still need fixing even with one container per client:
 | Cost per client | ~80–150 MB RAM | ~0 |
 | Self-serve signup | awkward | natural |
 | Cross-client analytics | needs fan-out | a query |
+| Client self-serves their own branding | same — it is an admin page either way | same |
 
-The deciding factor is not the table, it's the risk asymmetry. A cross-tenant leak is
+Note the last row: **client-editable branding is orthogonal to the deployment model.** It is the
+§2.2.1 admin UI in both cases, which is why Phase 1 is unchanged by this decision.
+
+The deciding factor is not the table, it's the risk asymmetry. A cross-client leak is
 reputationally fatal for a small vendor selling to local businesses, and Option B carries that
 risk permanently in every future change. Option A removes the entire bug class by construction,
 and its costs are predictable, bounded and mostly one-off scripting.
 
-For a realistic first year — somewhere between 2 and 30 establishments — Option A is cheaper in
-total effort, lower risk, and gets a second client live sooner.
+At a confirmed ceiling of **under 30 establishments**, Option A is cheaper in total effort, lower
+risk, and gets a second client live sooner.
 
 ### 2.5 When to revisit
 
@@ -275,8 +355,8 @@ clients from a UK-GDPR template with `{{shop_name}}` / `{{contact_email}}` fille
 | `/shop/icon.svg` | inline `☕` on `#4b2e2b` | till PWA icon, brown — doesn't even match the current blue theme |
 
 Two different logo files for the same logo is an existing inconsistency. Consolidate to one
-per-client asset set, resolved through `/brand/{name}` against
-`/app/config/assets/` (Option A) or `data/tenants/{slug}/assets/` (Option B), falling back to a platform default when a client has not uploaded one:
+per-client asset set, resolved through `/brand/{name}?v={hash}` with the fallback chain from
+§2.2 — platform default → seeded → client-uploaded:
 
 - `logo` (square, transparent) — header, watermark, install bar
 - `icon-192`, `icon-512`, `icon-maskable` — generated on upload, not hand-supplied
@@ -284,9 +364,11 @@ per-client asset set, resolved through `/brand/{name}` against
 - `wallet-logo` — must be a publicly reachable absolute URL for Google
 - `favicon`
 
-On upload: re-encode, strip EXIF, resize to the needed variants, cap dimensions. 746 KB on the
-critical path of the join page is a conversion problem today and gets worse when clients upload
-phone photos.
+On upload: re-encode, strip EXIF, resize to the needed variants, cap dimensions, and stamp a
+content hash into the URL for cache-busting. 746 KB on the critical path of the join page is a
+conversion problem today and gets worse the moment a client uploads a photo straight off a phone.
+Because clients drive this themselves through the admin UI (§2.2.1), the pipeline is Phase 1
+work, not a later optimisation.
 
 The hero treatment on `join.html:139–141` is four stacked gradient tints hardcoded to the blue
 palette. Rewrite them in terms of the tokens so a warm-brown client's photo doesn't come out blue.
@@ -445,10 +527,13 @@ The flat `settings(key, value)` table is fine and cheap — don't replace it wit
   `auth.*`. Values that are structured (quick-spend buttons, theme token map) stored as JSON.
 - **Bind to a typed `ClientConfig` record** on read, with defaults in code. Every consumer goes
   through the typed object, so a missing key can never render as an empty string in the UI.
-- **Resolution order under Option A**: code defaults → `clients/{slug}/client.json` (mounted,
-  read-only) → DB `settings` overrides written by the admin UI. Cache the merged object in memory;
-  invalidate on save. `client.json` is the source of truth you commit; the DB layer is for
-  same-day tweaks a client asks for over the phone.
+- **Resolution order**: code defaults → `/app/config/client.json` (provisioning seed) → DB
+  `settings` (what the admin UI writes — wins). Cache the merged object in memory and invalidate
+  on save; branding saves are now a routine client action, not a rare one, so invalidation has to
+  be reliable — it must also drop the compiled-page cache, the `theme.css` ETag and the asset
+  hash map.
+- **The DB is the source of truth.** `client.json` seeds a new client; `config-export` dumps the
+  live state back to JSON for backup, rollback and cloning.
 - **Never return secrets.** `GET /api/admin/settings` already does this correctly for the service
   account JSON (returns a boolean) — apply the same discipline to every new secret.
 
@@ -546,14 +631,21 @@ Versioned migration runner replacing the silent `ALTER` block (`Program.cs:68–
 `ClientConfig` bound over the existing `settings` table; split `Program.cs` per §6; add the test
 project. **Nothing visible changes.**
 
-### Phase 1 — Parameterise everything (still one client, still one container)
-`/theme.css` + token rewrite of all four pages; placeholder substitution for every string in §3.2;
-asset resolution via `/brand/*` with fallbacks; manifests and service workers become rendered
-endpoints; 4–6 theme presets; programme, currency, locale and timezone settings from §3.4; new
-**Branding** tab in admin with live preview. Config resolution order wired up: defaults →
-`/app/config/client.json` → DB overrides.
-**Milestone: a new establishment can be skinned end-to-end without touching code.** This is the
-phase that actually delivers the goal, and it is identical under either deployment model.
+### Phase 1 — Parameterise everything, and put it behind an admin page
+The main event, and the phase worth spending time on. `/theme.css` + token rewrite of all four
+pages; placeholder substitution for every string in §3.2; asset resolution via `/brand/*` with the
+§2.2 fallback chain; upload pipeline with resizing, EXIF stripping, icon generation and
+content-hash cache-busting; manifests and service workers become rendered endpoints; 4–6 theme
+presets; programme, currency, locale and timezone settings from §3.4; config resolution order
+wired up; cache invalidation on save.
+
+Then the surface that makes it usable: the **Branding** tab described in §2.2.1 — image uploads,
+grouped colour pickers, preset selector, length-limited text fields, markdown privacy-policy
+editor, contrast warnings, per-section reset, and a live phone-width preview of the join, card and
+till pages.
+
+**Milestone: a client can change their own logo, palette and copy from the admin page, and you
+never touch code or redeploy.** Identical under either deployment model.
 
 ### Phase 2 — Fleet provisioning (replaces the old "tenant plumbing" phase)
 Move `clients/qosfc/` into git with QOSFC's current branding extracted from the HTML; mount it
@@ -565,8 +657,9 @@ published `3002:8080` port mapping.
 
 ### Phase 3 — Hardening
 PIN hashing, rate limiting, session tokens, generated per-client PINs forced on first login;
-Wallet key out of the DB and into a mounted secret; **slug-scoped Google Wallet class and object
-IDs (§2.3 — required before client #2 if they share an issuer)**; Wallet access-token caching and
+Wallet key out of the DB and into a mounted secret; **configurable Google Wallet class suffix and
+slug-scoped object IDs, with QOSFC pinned to its legacy IDs (§2.3 — required before client #2 if
+they share a platform issuer)**; Wallet access-token caching and
 a cached service instance; `AllowedHosts` and `ForwardedHeaders`; idempotency keys at the till;
 indices and WAL; soft delete plus a real GDPR erasure path; tenant-local timezone across all
 reporting; asset pipeline (resize, strip EXIF, generate icon variants).
@@ -590,7 +683,10 @@ certificate — currently a 501 stub at `Program.cs:482`); marketing-list export
 |---|---|
 | Fleet drifts to mixed versions after a partial upgrade | One compose file, one `pull && up -d`; a rollout script that reports per-service image digests |
 | Memory cost grows quietly per client | `DOTNET_gcServer=0`, measure RSS per container, set per-service memory limits |
-| Google Wallet class collision across containers sharing an issuer | Slug-scoped class and object IDs in Phase 3 — **before** client #2 |
+| Google Wallet class collision across containers sharing a platform issuer | Configurable class suffix in Phase 3, **before** client #2. Separate stacks do not help — the namespace is Google's (§2.3) |
+| Changing Wallet object IDs orphans existing saved passes | Pin the existing client to legacy IDs via config; only new clients get slug-scoped IDs |
+| A client uploads a 4000px photo or an unreadable palette | Upload pipeline + contrast warnings + per-section reset, all Phase 1 (§2.2.1) |
+| A client changes their logo and still sees the old one | Content-hash asset URLs and a service-worker cache bump on save — the most likely support call |
 | Extracting QOSFC's branding into `client.json` changes the live site | Phase 2 starts by proving the mounted config renders byte-identical output before any second client exists |
 | A bad migration now runs against N databases | Versioned runner that fails loudly, tested in Phase 0; back up volumes before a rollout |
 | Stale service workers after the SW rewrite | Version cache keys per client and per release; `skipWaiting` + `clients.claim` are already present |
@@ -599,15 +695,19 @@ certificate — currently a 501 stub at `Program.cs:482`); marketing-list export
 
 **Open questions for you:**
 
-1. **How many establishments do you realistically expect in the first year?** This is the only
-   input that could overturn the Option A recommendation. Under ~30, Option A is clearly right.
-2. **Platform Google Wallet issuer, or does each establishment set up their own?** If shared, the
-   class-ID fix in §2.3 is a hard blocker for client #2. If each brings their own, it can wait.
-3. **Who owns DNS and TLS?** Wildcard `*.loyalty.example.com` plus CNAMEs for custom client
+1. ~~How many establishments in the first year?~~ **Answered: under 30.** Option A confirmed.
+2. **Platform Google Wallet issuer, or does each establishment set up their own?** Shared is the
+   right product answer (clients never see Google Cloud), and it makes the §2.3 class-suffix fix a
+   hard blocker for client #2. If each client brings their own issuer, the current code is already
+   correct and this can wait.
+3. **Should any settings be operator-only?** With one `admin_pin`, whoever holds it can also edit
+   the Wallet credentials and the points rate. Decide before an external client gets the PIN
+   (§2.2.1).
+4. **Who owns DNS and TLS?** Wildcard `*.loyalty.example.com` plus CNAMEs for custom client
    domains — Traefik with Let's Encrypt handles this, but the DNS has to exist.
-4. **Do any target clients have multiple sites?** If yes, `locations` moves from Phase 5 into
+5. **Do any target clients have multiple sites?** If yes, `locations` moves from Phase 5 into
    Phase 1's data model.
-5. **Any non-UK or non-GBP clients near term?** That moves currency and locale work to the front
+6. **Any non-UK or non-GBP clients near term?** That moves currency and locale work to the front
    of Phase 1.
-6. **Where does the box live, and what's its RAM ceiling?** Sets the practical client count before
-   §2.5 applies.
+7. **Where does the box live, and what's its RAM ceiling?** At under 30 clients this is unlikely to
+   bite, but it sets the ceiling before §2.5 applies.
