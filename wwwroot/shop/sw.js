@@ -1,7 +1,8 @@
 // Minimal service worker: makes the till installable as a PWA and caches the
 // app shell. API calls always go to the network.
-const CACHE = 'till-v1';
-const SHELL = ['/shop/', '/shop/index.html', '/shop/manifest.json', '/shop/icon.svg', '/lib/jsQR.js'];
+const CACHE = 'till-{{identity.slug}}-v{{configVersion}}';
+const SHELL = ['/shop/', '/shop/index.html', '/shop/manifest.json', '/lib/jsQR.js',
+               '/theme.css?v={{configVersion}}'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

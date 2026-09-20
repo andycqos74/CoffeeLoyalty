@@ -26,12 +26,26 @@ public class GoogleWalletService
     private readonly string _issuerId;
     private readonly string _serviceAccountEmail;
     private readonly RSA _rsa;
-    private const string ClassSuffix = "loyalty_card";
+    private readonly string _classSuffix;
+    private readonly string _objectPrefix;
     private static readonly HttpClient Http = new();
 
-    public GoogleWalletService(string issuerId, string serviceAccountJsonKey)
+    /// <param name="classSuffix">
+    /// Makes the class id {issuerId}.{classSuffix}. Establishments sharing one platform issuer
+    /// MUST have distinct suffixes — the class is a record on Google's servers, so separate
+    /// containers do not prevent them overwriting each other's pass design.
+    /// </param>
+    /// <param name="objectPrefix">
+    /// Makes the object id {issuerId}.{objectPrefix}{token}. Changing this for an existing
+    /// establishment orphans every already-saved pass, so clients created before per-client
+    /// scoping stay pinned to "loyalty_".
+    /// </param>
+    public GoogleWalletService(string issuerId, string serviceAccountJsonKey,
+        string classSuffix = "loyalty_card", string objectPrefix = "loyalty_")
     {
         _issuerId = issuerId;
+        _classSuffix = string.IsNullOrWhiteSpace(classSuffix) ? "loyalty_card" : classSuffix;
+        _objectPrefix = string.IsNullOrWhiteSpace(objectPrefix) ? "loyalty_" : objectPrefix;
         var sa = JObject.Parse(serviceAccountJsonKey);
         _serviceAccountEmail = sa["client_email"]!.Value<string>()!;
 
@@ -93,13 +107,14 @@ public class GoogleWalletService
         return JObject.Parse(body)["access_token"]!.Value<string>()!;
     }
 
-    private string ClassId => $"{_issuerId}.{ClassSuffix}";
-    private string ObjectId(string customerToken) => $"{_issuerId}.loyalty_{customerToken}";
+    private string ClassId => $"{_issuerId}.{_classSuffix}";
+    private string ObjectId(string customerToken) => $"{_issuerId}.{_objectPrefix}{customerToken}";
 
     // -----------------------------------------------------------------------
     // LoyaltyClass — created once per programme, holds the programme template
     // -----------------------------------------------------------------------
-    public async Task EnsureClassExists(string issuerName, string programName, string baseUrl)
+    public async Task EnsureClassExists(string issuerName, string programName, string baseUrl,
+        string backgroundColor = "#094582", string logoPath = "/logo.jpg", string language = "en-GB")
     {
         var token = await GetAccessToken();
         var classId = ClassId;
@@ -112,11 +127,11 @@ public class GoogleWalletService
             id = classId,
             issuerName,
             programName,
-            programLogo = new { sourceUri = new { uri = $"{baseUrl}/logo.jpg" }, contentDescription = new { defaultValue = new { language = "en-GB", value = "Logo" } } },
+            programLogo = new { sourceUri = new { uri = $"{baseUrl}{logoPath}" }, contentDescription = new { defaultValue = new { language, value = "Logo" } } },
             rewardsTierLabel = "Points",
             rewardsTier = "Member",
             reviewStatus = "UNDER_REVIEW",
-            hexBackgroundColor = "#094582"
+            hexBackgroundColor = backgroundColor
             // heroImage intentionally omitted — it was rendering at QR-code scale on the pass
         };
 
@@ -143,14 +158,14 @@ public class GoogleWalletService
     // -----------------------------------------------------------------------
     // LoyaltyObject — one per customer, holds their name + points balance
     // -----------------------------------------------------------------------
-    public async Task UpsertObject(string customerToken, string customerName, long points, string shopName,
+    public async Task UpsertObject(string customerToken, string customerName, long points, string programmeLabel,
         IReadOnlyList<(string header, string body)>? stampModules = null)
     {
         var token = await GetAccessToken();
         var objectId = ObjectId(customerToken);
         var classId = ClassId;
 
-        var textModules = BuildTextModules(shopName, stampModules);
+        var textModules = BuildTextModules(programmeLabel, stampModules);
         var loyaltyPoints = BuildLoyaltyPoints(points, stampModules);
 
         var obj = new
@@ -205,7 +220,7 @@ public class GoogleWalletService
     // -----------------------------------------------------------------------
     // "Save to Google Wallet" JWT — what the card page button opens
     // -----------------------------------------------------------------------
-    public string SaveUrl(string customerToken, string customerName, long points, string shopName,
+    public string SaveUrl(string customerToken, string customerName, long points, string programmeLabel,
         IReadOnlyList<(string header, string body)>? stampModules = null)
     {
         var objectId = ObjectId(customerToken);
@@ -225,7 +240,7 @@ public class GoogleWalletService
                 value = customerToken,
                 alternateText = customerToken
             },
-            textModulesData = BuildTextModules(shopName, stampModules)
+            textModulesData = BuildTextModules(programmeLabel, stampModules)
         };
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -268,11 +283,11 @@ public class GoogleWalletService
         return new { balance = new { @string = points.ToString() }, label = "Points" };
     }
 
-    private static object[] BuildTextModules(string shopName, IReadOnlyList<(string header, string body)>? stampModules)
+    private static object[] BuildTextModules(string programmeLabel, IReadOnlyList<(string header, string body)>? stampModules)
     {
         var modules = new List<object>
         {
-            new { id = "programme", header = "Programme", body = $"{shopName} Loyalty" }
+            new { id = "programme", header = "Programme", body = programmeLabel }
         };
         if (stampModules != null)
         {

@@ -1,0 +1,62 @@
+{
+  "identity": {
+    "slug": "example",
+    "shopName": "The Corner Bakery",
+    "shortName": "Corner Bakery",
+    "contactEmail": "hello@example.com"
+  },
+  "locale": {
+    "currencySymbol": "€",
+    "currencyCode": "EUR",
+    "timeZone": "Europe/Dublin"
+  },
+  "programme": {
+    "pointsPerUnit": 5,
+    "quickSpend": [2, 3, 5],
+    "quickStamp": [1, 2, 3],
+    "stampIcon": "heart",
+    "stampEmojiFilled": "🥐",
+    "defaultItemNoun": "pastry"
+  },
+  "theme": {
+    "brandPrimary": "#7c2d4a",
+    "brandPrimaryDeep": "#2d0f1c",
+    "brandPrimaryMid": "#5a2036",
+    "brandPrimaryLight": "#9c3f60",
+    "surfaceDark": "#280d19",
+    "cardGradFrom": "#a34a6b",
+    "cardGradMid": "#7c2d4a",
+    "cardGradTo": "#5a2036",
+    "accent": "#f472b6",
+    "accentHover": "#f9a8d4",
+    "accentSoft": "#fbcfe8",
+    "accentTint": "#fce7f3",
+    "onAccent": "#3d0f22",
+    "surface": "#fdf4f7",
+    "surfaceAlt": "#fae3ec",
+    "accentUi": "#b3527a",
+    "navDark": "#3d1526",
+    "modalSurface": "#5a2036",
+    "installBarBg": "#38121f",
+    "fontDisplay": "Fraunces",
+    "fontBody": "Karla"
+  },
+  "copy": {
+    "joinTitle": "Join — The Corner Bakery",
+    "joinPill": "Bakers' club",
+    "joinHeadline": "Fresh every\nmorning,",
+    "joinHeadlineAccent": "free every tenth.",
+    "joinSubcopy": "A stamp with every pastry. Ten stamps, the next one's on us.",
+    "joinCta": "Get my stamp card",
+    "consentText": "Email me news and offers from The Corner Bakery.",
+    "cardTitle": "My Corner Bakery card",
+    "shopHeading": "Counter",
+    "adminHeading": "The Corner Bakery — Admin",
+    "pwaName": "The Corner Bakery Loyalty",
+    "pwaShortName": "Bakery"
+  },
+  "wallet": {
+    "programName": "Corner Bakery Stamps",
+    "classSuffix": "loyalty_example"
+  }
+}

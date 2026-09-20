@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
+using CoffeeLoyalty.Branding;
+using CoffeeLoyalty.Config;
 using Microsoft.Data.Sqlite;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,9 +56,6 @@ void InitDb()
             value TEXT NOT NULL
         );
         INSERT OR IGNORE INTO settings (key, value) VALUES
-            ('shop_name', 'Queen of the South Café'),
-            ('wallet_program_name', 'QOSFC Loyalty'),
-            ('points_per_pound', '10'),
             ('staff_pin', '1234'),
             ('admin_pin', '9999'),
             ('google_wallet_issuer_id', ''),
@@ -87,6 +86,81 @@ void InitDb()
     }
 }
 InitDb();
+
+// ---------------------------------------------------------------------------
+// Client configuration and branding
+//
+// Defaults (code) -> config/client.json (provisioning seed) -> DB settings (admin UI, wins).
+// Uploaded assets live on the data volume so they survive image upgrades; the read-only
+// config mount only ever holds the seed.
+// ---------------------------------------------------------------------------
+var configDir = Environment.GetEnvironmentVariable("CLIENT_CONFIG_DIR")
+                ?? Path.Combine(AppContext.BaseDirectory, "config");
+var webRoot = app.Environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+var clientConfig = new ConfigStore(configDir, Open);
+var assets = new AssetResolver(Path.Combine(dataDir, "assets"), Path.Combine(configDir, "assets"), webRoot);
+var pages = new PageTemplate(clientConfig, assets);
+
+// Renders a wwwroot page through the template layer instead of serving it as a static file.
+// Endpoints take precedence over UseStaticFiles, so these win for the same paths.
+IResult Page(string relativePath)
+{
+    var full = Path.Combine(webRoot, relativePath);
+    return File.Exists(full)
+        ? Results.Content(pages.Render(full), "text/html; charset=utf-8")
+        : Results.NotFound();
+}
+
+IResult Templated(string relativePath, string contentType)
+{
+    var full = Path.Combine(webRoot, relativePath);
+    return File.Exists(full)
+        ? Results.Content(pages.Render(full), contentType)
+        : Results.NotFound();
+}
+
+void SaveSettings(SqliteConnection c, IEnumerable<KeyValuePair<string, string>> values)
+{
+    foreach (var (key, value) in values)
+    {
+        var cmd = c.CreateCommand();
+        cmd.CommandText = "INSERT INTO settings (key, value) VALUES ($k, $v) ON CONFLICT(key) DO UPDATE SET value = $v";
+        cmd.Parameters.AddWithValue("$k", key);
+        cmd.Parameters.AddWithValue("$v", value);
+        cmd.ExecuteNonQuery();
+    }
+    clientConfig.Invalidate();
+}
+
+// Builds a Wallet client scoped to this establishment's class/object namespace. Sharing a
+// platform issuer without distinct suffixes makes clients overwrite each other's pass design.
+GoogleWalletService WalletService(SqliteConnection c)
+{
+    var w = clientConfig.Current.Wallet;
+    return new GoogleWalletService(
+        GetSetting(c, "google_wallet_issuer_id"),
+        GetSetting(c, "google_wallet_service_account_json"),
+        w.ClassSuffix, w.ObjectPrefix);
+}
+
+// Pass branding, falling back to the theme's primary when no explicit pass colour is set.
+async Task EnsureWalletClass(GoogleWalletService svc, string issuerName, string programName, string baseUrl)
+{
+    var cfg = clientConfig.Current;
+    var background = string.IsNullOrWhiteSpace(cfg.Wallet.BackgroundColor)
+        ? cfg.Theme.BrandPrimary
+        : cfg.Wallet.BackgroundColor;
+    await svc.EnsureClassExists(issuerName, programName, baseUrl, background, assets.Url("walletLogo"), cfg.Locale.Language);
+}
+
+/// Formats minor currency units using the client's symbol and decimal places.
+string Money(long minor)
+{
+    var loc = clientConfig.Current.Locale;
+    var value = minor / Math.Pow(10, loc.CurrencyMinorDigits);
+    return loc.CurrencySymbol + value.ToString("N" + loc.CurrencyMinorDigits,
+        System.Globalization.CultureInfo.InvariantCulture);
+}
 
 string GetSetting(SqliteConnection c, string key)
 {
@@ -190,7 +264,7 @@ void Notify(string token)
     using var c = Open();
     var cust = FindCustomerByToken(c, token);
     if (cust is null) return;
-    var rate = long.TryParse(GetSetting(c, "points_per_pound"), out var rr) ? rr : 10;
+    var rate = (long)clientConfig.Current.Programme.PointsPerUnit;
     var payload = JsonSerializer.Serialize(new
     {
         points = PointsBalance(c, cust.Value.id),
@@ -212,11 +286,12 @@ List<(string header, string body)> StampModulesForPass(SqliteConnection c, long 
     using var r = cmd.ExecuteReader();
     while (r.Read())
     {
+        var prog = clientConfig.Current.Programme;
         var slots = r.GetInt64(1);
-        var itemName = r.IsDBNull(2) ? "item" : r.GetString(2);
+        var itemName = r.IsDBNull(2) ? prog.DefaultItemNoun : r.GetString(2);
         var filled = Math.Min(points, slots);
-        var grid = string.Concat(Enumerable.Repeat("🏆", (int)filled))
-                 + string.Concat(Enumerable.Repeat("○", (int)(slots - filled)));
+        var grid = string.Concat(Enumerable.Repeat(prog.StampEmojiFilled, (int)filled))
+                 + string.Concat(Enumerable.Repeat(prog.StampEmojiEmpty, (int)(slots - filled)));
         var status = filled >= slots ? "Ready to redeem!" : $"{filled} of {slots} {itemName}s";
         modules.Add((r.GetString(0), $"{grid}\n{status}"));
     }
@@ -239,12 +314,12 @@ async Task NotifyWallet(string token)
         var points = PointsBalance(c, cust.Value.id);
         var stampModules = StampModulesForPass(c, points);
 
-        var svc = new GoogleWalletService(issuerId, saJson);
+        var svc = WalletService(c);
         var publicBase = GetSetting(c, "public_base_url");
         var programName = GetSetting(c, "wallet_program_name");
         if (string.IsNullOrEmpty(programName)) programName = $"{shopName} Loyalty";
-        await svc.EnsureClassExists(shopName, programName, publicBase);
-        await svc.UpsertObject(token, cust.Value.name, points, shopName, stampModules);
+        await EnsureWalletClass(svc, shopName, programName, publicBase);
+        await svc.UpsertObject(token, cust.Value.name, points, programName, stampModules);
     }
     catch (Exception ex)
     {
@@ -288,8 +363,8 @@ app.MapPost("/api/admin/wallet-update-class", async (HttpRequest req) =>
         var shopName = GetSetting(c, "shop_name");
         var programName = GetSetting(c, "wallet_program_name");
         if (string.IsNullOrEmpty(programName)) programName = $"{shopName} Loyalty";
-        var svc = new GoogleWalletService(issuerId, saJson);
-        await svc.EnsureClassExists(shopName, programName, baseUrl);
+        var svc = WalletService(c);
+        await EnsureWalletClass(svc, shopName, programName, baseUrl);
         return Results.Ok(new { ok = true, baseUrl });
     }
     catch (Exception ex)
@@ -309,7 +384,7 @@ app.MapGet("/api/admin/wallet-test", async (HttpRequest req) =>
 
     try
     {
-        var svc = new GoogleWalletService(issuerId, saJson);
+        var svc = WalletService(c);
         var baseUrl = $"{req.Scheme}://{req.Host}";
         var shopName = GetSetting(c, "shop_name");
         var result = await svc.TestConnection(shopName, baseUrl);
@@ -332,7 +407,7 @@ app.MapGet("/api/admin/wallet-object/{customerToken}", async (HttpRequest req, s
         return Results.Json(new { error = "Google Wallet not configured" }, statusCode: 400);
     try
     {
-        var svc = new GoogleWalletService(issuerId, saJson);
+        var svc = WalletService(c);
         var (status, body) = await svc.GetObjectRaw(customerToken);
         return Results.Content(body, "application/json", statusCode: status);
     }
@@ -380,12 +455,15 @@ app.MapGet("/api/customer/{token}", (string token) =>
     using var c = Open();
     var cust = FindCustomerByToken(c, token);
     if (cust is null) return Results.NotFound(new { error = "Unknown card" });
-    var rate = long.TryParse(GetSetting(c, "points_per_pound"), out var rr) ? rr : 10;
+    var cfg = clientConfig.Current;
+    var rate = (long)cfg.Programme.PointsPerUnit;
     return Results.Ok(new
     {
         name = cust.Value.name,
-        shopName = GetSetting(c, "shop_name"),
+        shopName = cfg.Identity.ShopName,
         pointsPerPound = rate,
+        stampIcon = cfg.Programme.StampIcon,
+        currencySymbol = cfg.Locale.CurrencySymbol,
         points = PointsBalance(c, cust.Value.id),
         totalSpendPence = TotalSpendPence(c, cust.Value.id),
         activity = RecentActivity(c, cust.Value.id),
@@ -468,9 +546,9 @@ app.MapGet("/api/wallet/google/{token}", async (string token, HttpRequest req) =
         var stampModules = StampModulesForPass(c, points);
         var programName2 = GetSetting(c, "wallet_program_name");
         if (string.IsNullOrEmpty(programName2)) programName2 = $"{shopName} Loyalty";
-        var svc = new GoogleWalletService(issuerId, saJson);
-        await svc.EnsureClassExists(shopName, programName2, baseUrl);
-        var url = svc.SaveUrl(token, cust.Value.name, points, shopName, stampModules);
+        var svc = WalletService(c);
+        await EnsureWalletClass(svc, shopName, programName2, baseUrl);
+        var url = svc.SaveUrl(token, cust.Value.name, points, programName2, stampModules);
         return Results.Ok(new { url });
     }
     catch (Exception ex)
@@ -494,7 +572,17 @@ app.MapPost("/api/shop/login", (JsonElement body) =>
 {
     using var c = Open();
     var ok = body.TryGetProperty("pin", out var p) && p.GetString() == GetSetting(c, "staff_pin");
-    return ok ? Results.Ok(new { ok = true, shopName = GetSetting(c, "shop_name") }) : Unauthorized();
+    if (!ok) return Unauthorized();
+    var cfg = clientConfig.Current;
+    return Results.Ok(new
+    {
+        ok = true,
+        shopName = cfg.Identity.ShopName,
+        currencySymbol = cfg.Locale.CurrencySymbol,
+        currencyMinorDigits = cfg.Locale.CurrencyMinorDigits,
+        quickSpend = cfg.Programme.QuickSpend,
+        quickStamp = cfg.Programme.QuickStamp
+    });
 });
 
 app.MapGet("/api/shop/customer/{token}", (string token, HttpRequest req) =>
@@ -516,15 +604,17 @@ app.MapPost("/api/shop/earn", (JsonElement body, HttpRequest req) =>
     if (!PinOk(req, "staff_pin")) return Unauthorized();
     var token = body.GetProperty("token").GetString() ?? "";
     var amountPence = body.GetProperty("amountPence").GetInt64();
-    if (amountPence <= 0 || amountPence > 100000)
-        return Results.BadRequest(new { error = "Amount must be between £0.01 and £1000" });
+    var maxMinor = clientConfig.Current.Programme.MaxTransactionMinor;
+    if (amountPence <= 0 || amountPence > maxMinor)
+        return Results.BadRequest(new { error = $"Amount must be between {Money(1)} and {Money(maxMinor)}" });
 
     using var c = Open();
     var cust = FindCustomerByToken(c, token);
     if (cust is null) return Results.NotFound(new { error = "Unknown card" });
 
-    var rate = long.Parse(GetSetting(c, "points_per_pound"));
-    var points = amountPence * rate / 100; // floor — e.g. £3.50 @ 10/£ = 35 pts
+    var rate = (long)clientConfig.Current.Programme.PointsPerUnit;
+    var minorPerUnit = (long)Math.Pow(10, clientConfig.Current.Locale.CurrencyMinorDigits);
+    var points = amountPence * rate / minorPerUnit; // floor — e.g. 3.50 @ 10/unit = 35 pts
 
     var cmd = c.CreateCommand();
     cmd.CommandText = """
@@ -534,7 +624,7 @@ app.MapPost("/api/shop/earn", (JsonElement body, HttpRequest req) =>
     cmd.Parameters.AddWithValue("$id", cust.Value.id);
     cmd.Parameters.AddWithValue("$amt", amountPence);
     cmd.Parameters.AddWithValue("$pts", points);
-    cmd.Parameters.AddWithValue("$desc", $"Purchase £{amountPence / 100.0:0.00}");
+    cmd.Parameters.AddWithValue("$desc", $"Purchase {Money(amountPence)}");
     cmd.ExecuteNonQuery();
 
     Notify(token);
@@ -595,7 +685,8 @@ app.MapPost("/api/shop/stamp", (JsonElement body, HttpRequest req) =>
     if (!PinOk(req, "staff_pin")) return Unauthorized();
     var token = body.GetProperty("token").GetString() ?? "";
     var itemCount = body.GetProperty("itemCount").GetInt64();
-    var itemName = body.TryGetProperty("itemName", out var iN) ? iN.GetString() ?? "item" : "item";
+    var defaultNoun = clientConfig.Current.Programme.DefaultItemNoun;
+    var itemName = body.TryGetProperty("itemName", out var iN) ? iN.GetString() ?? defaultNoun : defaultNoun;
     if (itemCount <= 0 || itemCount > 99)
         return Results.BadRequest(new { error = "Item count must be 1–99" });
 
@@ -953,11 +1044,12 @@ app.MapGet("/api/admin/settings", (HttpRequest req) =>
 {
     if (!PinOk(req, "admin_pin")) return Unauthorized();
     using var c = Open();
+    var cfg = clientConfig.Current;
     return Results.Ok(new
     {
-        shopName = GetSetting(c, "shop_name"),
-        walletProgramName = GetSetting(c, "wallet_program_name"),
-        pointsPerPound = GetSetting(c, "points_per_pound"),
+        shopName = cfg.Identity.ShopName,
+        walletProgramName = cfg.Wallet.ProgramName,
+        pointsPerPound = cfg.Programme.PointsPerUnit.ToString(),
         staffPin = GetSetting(c, "staff_pin"),
         googleWalletIssuerId = GetSetting(c, "google_wallet_issuer_id"),
         googleWalletConfigured = !string.IsNullOrEmpty(GetSetting(c, "google_wallet_service_account_json"))
@@ -983,34 +1075,215 @@ app.MapPut("/api/admin/settings", (JsonElement body, HttpRequest req) =>
     if (body.TryGetProperty("adminPin", out var ap) && !string.IsNullOrEmpty(ap.GetString())) Set("admin_pin", ap.GetString()!);
     if (body.TryGetProperty("googleWalletIssuerId", out var gi)) Set("google_wallet_issuer_id", gi.GetString() ?? "");
     if (body.TryGetProperty("googleWalletServiceAccountJson", out var gj) && !string.IsNullOrEmpty(gj.GetString())) Set("google_wallet_service_account_json", gj.GetString()!);
+    clientConfig.Invalidate();
     return Results.Ok(new { ok = true });
 });
 
 // ---------------------------------------------------------------------------
-// Static pages
+// Branding: theme, assets, and the admin surface that edits them
+// ---------------------------------------------------------------------------
+
+// The client's palette as CSS custom properties. Every page links this; no page carries
+// a literal hex value, which is what makes a re-skin a settings change.
+app.MapGet("/theme.css", (HttpResponse res) =>
+{
+    res.Headers.ETag = $"W/\"theme-{clientConfig.Version}\"";
+    res.Headers.CacheControl = "no-cache";
+    return Results.Content(ThemeCss.Render(clientConfig.Current), "text/css; charset=utf-8");
+});
+
+// Brand assets, resolved platform default -> seeded -> client upload. URLs carry a content
+// hash, so these can be cached hard and still update the instant a client swaps their logo.
+app.MapGet("/brand/{name}", (string name, HttpResponse res) =>
+{
+    var path = assets.Resolve(name);
+    if (path is null) return Results.NotFound();
+    res.Headers.CacheControl = "public, max-age=31536000, immutable";
+    return Results.File(path, AssetResolver.ContentType(path));
+});
+
+app.MapGet("/api/admin/branding", (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var c = clientConfig.Current;
+    return Results.Ok(new
+    {
+        config = c,
+        presets = ThemePresets.All.Select(p => new { p.Id, p.Name, p.Description, theme = p.Theme }),
+        assets = AssetResolver.Names.Select(n => new
+        {
+            name = n,
+            url = assets.Url(n),
+            custom = assets.IsCustom(n)
+        }),
+        // Surfaced so the Branding tab can warn before a client makes their own site unreadable.
+        contrast = new
+        {
+            accentOnPrimary = Math.Round(ThemeCss.ContrastRatio(c.Theme.Accent, c.Theme.BrandPrimary), 2),
+            onAccentOnAccent = Math.Round(ThemeCss.ContrastRatio(c.Theme.OnAccent, c.Theme.Accent), 2),
+            whiteOnPrimaryDeep = Math.Round(ThemeCss.ContrastRatio("#ffffff", c.Theme.BrandPrimaryDeep), 2),
+            primaryOnSurface = Math.Round(ThemeCss.ContrastRatio(c.Theme.BrandPrimary, c.Theme.Surface), 2)
+        },
+        version = clientConfig.Version
+    });
+});
+
+// Accepts dotted config paths, e.g. { "theme.accent": "#ff0000", "copy.joinPill": "Rewards" }.
+// Unknown paths are ignored by the config layer rather than inventing settings.
+app.MapPut("/api/admin/branding", (JsonElement body, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    if (body.ValueKind != JsonValueKind.Object) return Results.BadRequest(new { error = "Expected an object" });
+
+    var known = ConfigStore.Flatten(clientConfig.Current);
+    var updates = new List<KeyValuePair<string, string>>();
+    var rejected = new List<string>();
+    foreach (var prop in body.EnumerateObject())
+    {
+        if (!known.ContainsKey(prop.Name)) { rejected.Add(prop.Name); continue; }
+        var value = prop.Value.ValueKind switch
+        {
+            JsonValueKind.String => prop.Value.GetString() ?? "",
+            JsonValueKind.Null => "",
+            _ => prop.Value.GetRawText()
+        };
+        updates.Add(new(prop.Name, value));
+    }
+    if (updates.Count == 0 && rejected.Count > 0)
+        return Results.BadRequest(new { error = "No recognised settings", rejected });
+
+    using var c = Open();
+    SaveSettings(c, updates);
+    return Results.Ok(new { ok = true, updated = updates.Count, rejected, version = clientConfig.Version });
+});
+
+// Applies a whole palette at once. Individual tokens can still be overridden afterwards.
+app.MapPost("/api/admin/branding/preset/{id}", (string id, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var preset = ThemePresets.Find(id);
+    if (preset is null) return Results.NotFound(new { error = "Unknown preset" });
+
+    var values = ConfigStore.Flatten(new ClientConfig { Theme = preset.Theme })
+        .Where(kv => kv.Key.StartsWith("theme.", StringComparison.Ordinal))
+        .ToList();
+    using var c = Open();
+    SaveSettings(c, values);
+    return Results.Ok(new { ok = true, preset = preset.Id, version = clientConfig.Version });
+});
+
+// Uploads are resized, stripped of EXIF and re-encoded before they touch disk; replacing
+// the logo regenerates the PWA icon set.
+app.MapPost("/api/admin/branding/asset/{name}", async (string name, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    if (!req.HasFormContentType) return Results.BadRequest(new { error = "Expected a file upload" });
+
+    var form = await req.ReadFormAsync();
+    var file = form.Files.FirstOrDefault();
+    if (file is null || file.Length == 0) return Results.BadRequest(new { error = "No file supplied" });
+
+    await using var stream = file.OpenReadStream();
+    var result = await ImagePipeline.SaveAsync(assets, name, stream, file.ContentType ?? "");
+    if (!result.Ok) return Results.BadRequest(new { error = result.Error });
+
+    clientConfig.Invalidate(); // drops the compiled-page cache so new asset URLs are emitted
+    return Results.Ok(new { ok = true, url = assets.Url(name), result.Width, result.Height, result.Bytes });
+});
+
+app.MapDelete("/api/admin/branding/asset/{name}", (string name, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    if (!AssetResolver.IsKnown(name)) return Results.NotFound(new { error = "Unknown asset" });
+    ImagePipeline.Revert(assets, name);
+    clientConfig.Invalidate();
+    return Results.Ok(new { ok = true, url = assets.Url(name) });
+});
+
+// Dumps live config as the JSON you commit back to clients/{slug}/client.json — the backup,
+// rollback and clone-this-client path.
+app.MapGet("/api/admin/config-export", (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var json = JsonSerializer.Serialize(clientConfig.Current, ConfigStore.Json);
+    return Results.Text(json, "application/json");
+});
+
+// ---------------------------------------------------------------------------
+// Static pages — the four HTML pages render through the template layer, so endpoints
+// are mapped for each path. StaticFileMiddleware skips a request once an endpoint matches.
 // ---------------------------------------------------------------------------
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.MapGet("/join.html", () => Page("join.html"));
+app.MapGet("/shop", () => Page("shop/index.html"));          // also matches /shop/
+app.MapGet("/shop/index.html", () => Page("shop/index.html"));
+app.MapGet("/admin", () => Page("admin/index.html"));        // also matches /admin/
+app.MapGet("/admin/index.html", () => Page("admin/index.html"));
+app.MapGet("/sw.js", () => Templated("sw.js", "text/javascript; charset=utf-8"));
+app.MapGet("/shop/sw.js", () => Templated("shop/sw.js", "text/javascript; charset=utf-8"));
+
+// PWA manifests, rendered per client rather than shipped as static JSON.
+app.MapGet("/manifest.json", () =>
+{
+    var c = clientConfig.Current;
+    return Results.Content(JsonSerializer.Serialize(new
+    {
+        name = c.Copy.PwaName,
+        short_name = c.Copy.PwaShortName,
+        description = c.Copy.PwaDescription,
+        start_url = "/",
+        display = "standalone",
+        background_color = c.Theme.BrandPrimaryDeep,
+        theme_color = c.Theme.BrandPrimary,
+        icons = new[]
+        {
+            new { src = assets.Url("icon192"), sizes = "192x192", type = "image/png", purpose = "any" },
+            new { src = assets.Url("icon512"), sizes = "512x512", type = "image/png", purpose = "any" },
+            new { src = assets.Url("iconMaskable"), sizes = "512x512", type = "image/png", purpose = "maskable" }
+        }
+    }), "application/manifest+json");
+});
+
+app.MapGet("/shop/manifest.json", () =>
+{
+    var c = clientConfig.Current;
+    return Results.Content(JsonSerializer.Serialize(new
+    {
+        name = c.Copy.PwaTillName,
+        short_name = c.Copy.PwaTillShortName,
+        start_url = "/shop/",
+        display = "standalone",
+        background_color = c.Theme.BrandPrimary,
+        theme_color = c.Theme.BrandPrimary,
+        icons = new[]
+        {
+            new { src = assets.Url("icon192"), sizes = "192x192", type = "image/png", purpose = "any" },
+            new { src = assets.Url("icon512"), sizes = "512x512", type = "image/png", purpose = "any maskable" }
+        }
+    }), "application/manifest+json");
+});
+
 // /card/{token} serves the customer card page (token read client-side from URL)
-app.MapGet("/card/{token}", (IWebHostEnvironment env) =>
-    Results.File(Path.Combine(env.WebRootPath, "card.html"), "text/html"));
+app.MapGet("/card/{token}", () => Page("card.html"));
 
 // Dynamic manifest for each customer's card (start_url must match the token URL for PWA install)
 app.MapGet("/api/manifest/{token}", (string token) =>
 {
+    var cfg = clientConfig.Current;
     var manifest = System.Text.Json.JsonSerializer.Serialize(new
     {
-        name = "QOSFC Loyalty Card",
-        short_name = "My Card",
+        name = cfg.Copy.PwaCardName,
+        short_name = cfg.Copy.PwaCardShortName,
         start_url = $"/card/{token}",
         display = "standalone",
-        background_color = "#061d33",
-        theme_color = "#094582",
+        background_color = cfg.Theme.SurfaceDark,
+        theme_color = cfg.Theme.BrandPrimary,
         icons = new[]
         {
-            new { src = "/logo.png", sizes = "192x192", type = "image/png", purpose = "any" },
-            new { src = "/logo.png", sizes = "512x512", type = "image/png", purpose = "any" }
+            new { src = assets.Url("icon192"), sizes = "192x192", type = "image/png", purpose = "any" },
+            new { src = assets.Url("icon512"), sizes = "512x512", type = "image/png", purpose = "any" }
         }
     });
     return Results.Content(manifest, "application/manifest+json");

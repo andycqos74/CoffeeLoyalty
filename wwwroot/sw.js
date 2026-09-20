@@ -1,5 +1,6 @@
-const CACHE = 'qosfc-loyalty-v1';
-const PRECACHE = ['/join.html', '/logo.png', '/latte.png', '/lib/qrcode.js', '/manifest.json'];
+const CACHE = 'loyalty-{{identity.slug}}-v{{configVersion}}';
+const PRECACHE = ['/join.html', '{{asset.logo}}', '{{asset.hero}}', '/lib/qrcode.js', '/manifest.json',
+                  '/theme.css?v={{configVersion}}'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE).catch(() => {})));
@@ -7,7 +8,11 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(clients.claim());
+  // Drop every older cache so a re-brand cannot leave a stale shell behind.
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => clients.claim()));
 });
 
 self.addEventListener('fetch', e => {

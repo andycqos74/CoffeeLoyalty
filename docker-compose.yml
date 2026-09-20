@@ -6,8 +6,11 @@ services:
     ports:
       - "3002:8080"
     volumes:
-      # Only the database directory is persisted — app binaries always come from the image.
+      # Database and client-uploaded brand assets. App binaries always come from the image.
       - loyalty_data:/app/data
+      # Per-client provisioning seed, read-only. See clients/README.md. Optional: without
+      # it the app runs on built-in defaults and whatever the admin Branding tab has saved.
+      - ./clients/qosfc:/app/config:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080

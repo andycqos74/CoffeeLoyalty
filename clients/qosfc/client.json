@@ -1,0 +1,14 @@
+{
+  "_comment": "Wallet ids are pinned to the pre-scoping values: this client's passes were issued as {issuerId}.loyalty_card / {issuerId}.loyalty_<token>, and changing either orphans every already-saved pass. New establishments use classSuffix loyalty_<slug> instead. See clients/README.md.",
+  "identity": {
+    "slug": "qosfc",
+    "shopName": "Queen of the South Café",
+    "shortName": "Queen of the South",
+    "contactEmail": "hello@queensofthecafe.co.uk"
+  },
+  "wallet": {
+    "programName": "QOSFC Loyalty",
+    "classSuffix": "loyalty_card",
+    "objectPrefix": "loyalty_"
+  }
+}

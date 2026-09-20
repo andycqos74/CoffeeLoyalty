@@ -1,49 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{htmlLang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Queen of the South Café — Admin</title>
+<link rel="stylesheet" href="/theme.css?v={{configVersion}}">
+<link rel="icon" href="{{asset.favicon}}">
+<title>{{copy.adminTitle}}</title>
 <style>
-  :root { --brown:#094582; --cream:#f0f4fa; --accent:#1a6abf; --green:#2e8b57; --red:#c0392b; }
   * { box-sizing:border-box; }
-  body { font-family:system-ui,-apple-system,sans-serif; background:var(--cream); margin:0; }
-  header { background:var(--brown); color:#fff; padding:14px 20px; display:flex;
+  body { font-family:system-ui,-apple-system,sans-serif; background:var(--surface); margin:0; }
+  header { background:var(--brand-primary); color:#fff; padding:14px 20px; display:flex;
            justify-content:space-between; align-items:center; }
   header h1 { font-size:1.1rem; margin:0; }
-  nav { display:flex; gap:4px; background:#062f5a; padding:0 12px; }
-  nav button { background:none; border:none; color:#8ab0d8; padding:12px 16px; cursor:pointer;
+  nav { display:flex; gap:4px; background:var(--nav-dark); padding:0 12px; }
+  nav button { background:none; border:none; color:var(--nav-fg-dim); padding:12px 16px; cursor:pointer;
                font-size:.9rem; border-bottom:3px solid transparent; }
-  nav button.on { color:#fff; border-bottom-color:var(--accent); font-weight:600; }
+  nav button.on { color:#fff; border-bottom-color:var(--accent-ui); font-weight:600; }
   main { padding:20px; max-width:960px; margin:0 auto; }
   .hidden { display:none !important; }
   table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
-  th, td { text-align:left; padding:10px 12px; font-size:.88rem; border-bottom:1px solid #d0ddf0; }
-  th { background:#eaf1fb; color:#1a4a82; font-weight:600; }
-  tr.click { cursor:pointer; } tr.click:hover { background:#f0f5fd; }
+  th, td { text-align:left; padding:10px 12px; font-size:.88rem; border-bottom:1px solid var(--brand-tint-22); }
+  th { background:var(--brand-tint-8); color:var(--brand-primary); font-weight:600; }
+  tr.click { cursor:pointer; } tr.click:hover { background:var(--brand-tint-3); }
   .panel { background:#fff; border-radius:12px; padding:20px; margin-bottom:16px; }
   input, select, textarea { padding:10px; border:1px solid #ddd; border-radius:8px; font-size:.95rem; }
   input::placeholder, textarea::placeholder { color:#c8c8c8; }
-  button.act { padding:10px 18px; background:var(--brown); color:#fff; border:none; border-radius:8px;
+  button.act { padding:10px 18px; background:var(--brand-primary); color:#fff; border:none; border-radius:8px;
                cursor:pointer; font-weight:600; }
   button.small { padding:4px 10px; font-size:.8rem; background:#eee; border:none; border-radius:6px; cursor:pointer; }
-  button.small.danger { background:#fde8e8; color:var(--red); }
-  .edit-panel { background:#f7f9ff; border:1px solid #dde8f8; border-radius:10px; padding:14px; margin-bottom:12px; }
+  button.small.danger { background:var(--danger-tint); color:var(--danger); }
+  .edit-panel { background:var(--brand-tint-3); border:1px solid var(--brand-tint-8); border-radius:10px; padding:14px; margin-bottom:12px; }
   .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
   .badge { padding:2px 8px; border-radius:10px; font-size:.75rem; font-weight:600; }
-  .badge.on { background:#e8f6ee; color:var(--green); }
+  .badge.on { background:var(--success-tint); color:var(--success); }
   .badge.off { background:#eee; color:#888; }
-  .pts-plus { color:var(--green); font-weight:600; } .pts-minus { color:var(--red); font-weight:600; }
+  .pts-plus { color:var(--success); font-weight:600; } .pts-minus { color:var(--danger); font-weight:600; }
   #loginBox { max-width:320px; margin:80px auto; text-align:center; }
   #loginBox input { width:100%; margin-bottom:10px; }
   #loginBox button { width:100%; }
-  .err { color:var(--red); font-size:.85rem; margin-top:8px; min-height:1em; }
+  .err { color:var(--danger); font-size:.85rem; margin-top:8px; min-height:1em; }
   .kpis { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
   .kpi { background:#fff; border-radius:12px; padding:14px 18px; flex:1; min-width:120px; }
-  .kpi .v { font-size:1.5rem; font-weight:700; color:var(--brown); }
+  .kpi .v { font-size:1.5rem; font-weight:700; color:var(--brand-primary); }
   .kpi .l { font-size:.75rem; color:#999; text-transform:uppercase; letter-spacing:.05em; }
-  h2 { color:var(--brown); font-size:1.05rem; }
-  a.back { color:var(--accent); text-decoration:none; font-size:.9rem; cursor:pointer; }
+  h2 { color:var(--brand-primary); font-size:1.05rem; }
+  a.back { color:var(--accent-ui); text-decoration:none; font-size:.9rem; cursor:pointer; }
   .legend-sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle; }
   .legend-sw.line { height:3px; border-radius:2px; transform:translateY(-1px); }
   .chart-legend { font-size:.8rem; color:#666; display:flex; gap:14px; flex-wrap:wrap; }
@@ -51,14 +52,14 @@
   .chart svg { display:block; }
   .chart .bar-label { font-size:.7rem; fill:#667; }
   .chart .axis-label { font-size:.72rem; fill:#889; }
-  .chart .grid-line { stroke:#e4eaf5; stroke-width:1; }
+  .chart .grid-line { stroke:var(--brand-tint-8); stroke-width:1; }
 </style>
 </head>
 <body>
 <header>
   <h1 style="display:flex;align-items:center;gap:10px">
-    <img src="/logo.jpg" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:contain">
-    Queen of the South Café — Admin
+    <img src="{{asset.logo}}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:contain">
+    {{copy.adminHeading}}
   </h1>
   <button class="small hidden" id="lockBtn">Lock</button>
 </header>
@@ -67,6 +68,7 @@
   <button data-tab="customers">Customers</button>
   <button data-tab="activity">Activity</button>
   <button data-tab="rewards">Rewards</button>
+  <button data-tab="branding">Branding</button>
   <button data-tab="settings">Settings</button>
 </nav>
 <main>
@@ -93,9 +95,9 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
         <h2 style="margin:0" id="dailyChartTitle">Activity by day</h2>
         <div class="chart-legend">
-          <span><span class="legend-sw" style="background:#2e8b57"></span>Earned pts</span>
-          <span><span class="legend-sw" style="background:#c0392b"></span>Redeemed pts</span>
-          <span><span class="legend-sw line" style="background:#1a6abf"></span>Signups</span>
+          <span><span class="legend-sw" style="background:var(--success)"></span>Earned pts</span>
+          <span><span class="legend-sw" style="background:var(--danger)"></span>Redeemed pts</span>
+          <span><span class="legend-sw line" style="background:var(--accent-ui)"></span>Signups</span>
         </div>
       </div>
       <div id="chartDaily" class="chart"></div>
@@ -104,9 +106,9 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
         <h2 style="margin:0">Activity by day of week (totals for selected range)</h2>
         <div class="chart-legend">
-          <span><span class="legend-sw" style="background:#2e8b57"></span>Earned pts</span>
-          <span><span class="legend-sw" style="background:#c0392b"></span>Redeemed pts</span>
-          <span><span class="legend-sw line" style="background:#1a6abf"></span>Signups</span>
+          <span><span class="legend-sw" style="background:var(--success)"></span>Earned pts</span>
+          <span><span class="legend-sw" style="background:var(--danger)"></span>Redeemed pts</span>
+          <span><span class="legend-sw line" style="background:var(--accent-ui)"></span>Signups</span>
         </div>
       </div>
       <div id="chartWeekday" class="chart"></div>
@@ -160,7 +162,7 @@
       <div class="row" style="color:#666;font-size:.9rem">
         <span id="dEmail"></span><span id="dJoined"></span>
         <span>Card: <code id="dToken"></code></span>
-        <a id="dCardLink" target="_blank" style="color:var(--accent)">open card</a>
+        <a id="dCardLink" target="_blank" style="color:var(--accent-ui)">open card</a>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="v" id="dSpend"></div><div class="l">Total spend</div></div>
@@ -202,16 +204,87 @@
       <tbody id="rwBody"></tbody></table></div>
   </div>
 
+  <div id="branding" class="hidden">
+    <div class="panel">
+      <h2>Theme preset</h2>
+      <p style="font-size:.85rem;color:#777;margin-top:0">Start from a vetted palette, then fine-tune individual colours below.</p>
+      <div class="row" id="presetRow"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Colours</h2>
+      <div id="contrastWarnings"></div>
+      <div class="brand-grid" id="colourGrid"></div>
+      <div style="margin-top:14px">
+        <button class="act" id="brandSaveColours">Save colours</button>
+        <span id="colourMsg" style="margin-left:10px;color:var(--success);font-size:.9rem"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Images</h2>
+      <p style="font-size:.85rem;color:#777;margin-top:0">
+        Uploads are resized and stripped of location data automatically. Replacing the logo regenerates the app icons.
+      </p>
+      <div class="brand-grid" id="assetGrid"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Wording</h2>
+      <div id="copyFields"></div>
+      <div style="margin-top:10px">
+        <button class="act" id="brandSaveCopy">Save wording</button>
+        <span id="copyMsg" style="margin-left:10px;color:var(--success);font-size:.9rem"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Privacy policy</h2>
+      <p style="font-size:.85rem;color:#777;margin-top:0">
+        Markdown. Use <code>### Heading</code> for sections. <code>{{shopName}}</code> and
+        <code>{{contactEmail}}</code> are filled in automatically.
+      </p>
+      <textarea id="privacyText" rows="14" style="width:100%;font-family:monospace;font-size:.8rem"></textarea>
+      <div style="margin-top:10px">
+        <button class="act" id="brandSavePrivacy">Save policy</button>
+        <span id="privacyMsg" style="margin-left:10px;color:var(--success);font-size:.9rem"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Programme</h2>
+      <div id="programmeFields"></div>
+      <div style="margin-top:10px">
+        <button class="act" id="brandSaveProgramme">Save programme</button>
+        <span id="progMsg" style="margin-left:10px;color:var(--success);font-size:.9rem"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Live preview <button class="small" id="refreshPreview" style="margin-left:8px">Refresh</button></h2>
+      <div class="preview-strip">
+        <div class="preview-frame"><iframe id="pvJoin" title="Join page"></iframe><div class="cap">Join</div></div>
+        <div class="preview-frame"><iframe id="pvCard" title="Card page"></iframe><div class="cap">Loyalty card</div></div>
+        <div class="preview-frame"><iframe id="pvTill" title="Till"></iframe><div class="cap">Till</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="font-size:.85rem;color:#777">
+      <a class="back" id="exportConfig">Download this client's configuration</a> —
+      commit it to <code>clients/&lt;slug&gt;/client.json</code> as a backup, or to use as the starting point for another site.
+    </div>
+  </div>
+
   <div id="settings" class="hidden">
     <div class="panel">
       <h2>Programme settings</h2>
-      <div class="row"><label style="width:160px">Shop name</label><input id="sShop" style="flex:1" placeholder="e.g. Queen of the South Café"></div>
-      <div class="row"><label style="width:160px">Wallet programme name</label><input id="sWalletProgram" style="flex:1" placeholder="e.g. QOSFC Loyalty"><span style="font-size:.8rem;color:#aaa;white-space:nowrap">shown on Google Wallet pass</span></div>
-      <div class="row"><label style="width:160px">Points per £1 spent</label><input id="sRate" type="number" min="1" style="width:100px"></div>
+      <div class="row"><label style="width:160px">Shop name</label><input id="sShop" style="flex:1" placeholder="e.g. The Corner Café"></div>
+      <div class="row"><label style="width:160px">Wallet programme name</label><input id="sWalletProgram" style="flex:1" placeholder="e.g. Corner Café Loyalty"><span style="font-size:.8rem;color:#aaa;white-space:nowrap">shown on Google Wallet pass</span></div>
+      <div class="row"><label style="width:160px">Points per {{currencySymbol}}1 spent</label><input id="sRate" type="number" min="1" style="width:100px"></div>
       <div class="row"><label style="width:160px">Staff PIN (till)</label><input id="sStaffPin" style="width:120px"></div>
       <div class="row"><label style="width:160px">New admin PIN</label><input id="sAdminPin" placeholder="leave blank to keep" style="width:180px"></div>
       <button class="act" id="sSave">Save settings</button>
-      <span id="sMsg" style="margin-left:10px;color:var(--green);font-size:.9rem"></span>
+      <span id="sMsg" style="margin-left:10px;color:var(--success);font-size:.9rem"></span>
     </div>
     <div class="panel">
       <h2>Google Wallet</h2>
@@ -223,7 +296,7 @@
       </div>
       <button class="act" id="sGSave">Save Google Wallet settings</button>
       <button class="act" id="sGUpdateClass" style="margin-left:8px;background:#555">Update pass design</button>
-      <span id="sGMsg" style="margin-left:10px;color:var(--green);font-size:.9rem"></span>
+      <span id="sGMsg" style="margin-left:10px;color:var(--success);font-size:.9rem"></span>
       <details style="margin-top:16px;font-size:.82rem;color:#777">
         <summary style="cursor:pointer;font-weight:600">Setup instructions (takes ~10 minutes, free)</summary>
         <ol style="margin:10px 0 0;padding-left:18px;line-height:1.8">
@@ -239,7 +312,7 @@
       </details>
     </div>
     <div class="panel" style="font-size:.85rem;color:#777">
-      Earn rule: <b>£1 = <span id="ruleRate"></span> points</b> (rounded down per transaction).
+      Earn rule: <b>{{currencySymbol}}1 = <span id="ruleRate"></span> points</b> (rounded down per transaction).
       Customers join at <code id="joinUrl"></code>; the till app lives at <code id="shopUrl"></code>.
     </div>
   </div>
@@ -258,9 +331,13 @@ async function api(path, opts = {}) {
   return data;
 }
 
-function fmtMoney(p) { return '£' + (p / 100).toFixed(2); }
+const CURRENCY = { symbol: {{js:locale.currencySymbol}}, digits: {{js:locale.currencyMinorDigits}} };
+function fmtMoney(p) {
+  const d = Number(CURRENCY.digits);
+  return CURRENCY.symbol + (p / Math.pow(10, d)).toFixed(d);
+}
 function showTab(tab) {
-  for (const t of ['dashboard','customers','activity','detail','rewards','settings']) $(t).classList.add('hidden');
+  for (const t of ['dashboard','customers','activity','detail','rewards','branding','settings']) $(t).classList.add('hidden');
   $(tab).classList.remove('hidden');
   for (const b of document.querySelectorAll('nav button'))
     b.classList.toggle('on', b.dataset.tab === tab);
@@ -268,6 +345,7 @@ function showTab(tab) {
   if (tab === 'customers') loadCustomers();
   if (tab === 'activity') loadActivity();
   if (tab === 'rewards') loadRewards();
+  if (tab === 'branding') loadBranding();
   if (tab === 'settings') loadSettings();
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -358,10 +436,10 @@ async function loadDashboard() {
     <div class="kpi"><div class="v" style="font-size:1.05rem">${fmtDateTime(d.lastRedeemedAt)}</div><div class="l">Last redeemed</div></div>
     <div class="kpi"><div class="v">${d.outstanding}</div><div class="l">Points outstanding</div></div>`;
   const bars = [
-    { key: 'earned', color: '#2e8b57', label: 'Earned' },
-    { key: 'redeemed', color: '#c0392b', label: 'Redeemed' }
+    { key: 'earned', color: 'var(--success)', label: 'Earned' },
+    { key: 'redeemed', color: 'var(--danger)', label: 'Redeemed' }
   ];
-  const line = { key: 'signups', color: '#1a6abf', label: 'Signups' };
+  const line = { key: 'signups', color: 'var(--accent-ui)', label: 'Signups' };
   renderComboChart($('chartDaily'), d.daily, bars, line);
   renderComboChart($('chartWeekday'), d.byWeekday, bars, line);
 }
@@ -478,7 +556,7 @@ async function loadRewards() {
   $('rwBody').innerHTML = list.map(r => {
     const typeLabel = r.type === 'stamp'
       ? `<span class="badge on">⚽ stamp</span>`
-      : `<span class="badge" style="background:#e8eef8;color:#1a4a82">pts</span>`;
+      : `<span class="badge" style="background:var(--brand-tint-8);color:var(--brand-primary)">pts</span>`;
     const costLabel = r.type === 'stamp'
       ? `${r.pointsCost} stamps${r.itemName ? ` (${r.itemName})` : ''}`
       : `${r.pointsCost} pts`;
@@ -546,6 +624,239 @@ $('rwAdd').onclick = async () => {
   loadRewards();
 };
 
+// ---------------------------------------------------------------------------
+// Branding tab — colours, images, wording and programme rules, all written back
+// as dotted config keys. Nothing here requires a deploy.
+// ---------------------------------------------------------------------------
+let brandState = null;
+
+const COLOUR_GROUPS = [
+  ['Brand', [
+    ['theme.brandPrimary', 'Primary'], ['theme.brandPrimaryDeep', 'Deepest'],
+    ['theme.brandPrimaryMid', 'Mid'], ['theme.brandPrimaryLight', 'Light'],
+    ['theme.surfaceDark', 'Card background'], ['theme.navDark', 'Admin nav']]],
+  ['Accent', [
+    ['theme.accent', 'Accent'], ['theme.accentHover', 'Accent hover'],
+    ['theme.accentSoft', 'Accent soft'], ['theme.accentTint', 'Accent tint'],
+    ['theme.onAccent', 'Text on accent'], ['theme.accentUi', 'UI accent']]],
+  ['Surfaces', [
+    ['theme.surface', 'Page background'], ['theme.surfaceAlt', 'Panel tint'],
+    ['theme.cardGradFrom', 'QR gradient from'], ['theme.cardGradMid', 'QR gradient mid'],
+    ['theme.cardGradTo', 'QR gradient to'], ['theme.modalSurface', 'Modal'],
+    ['theme.installBarBg', 'Install bar']]],
+  ['Status', [
+    ['theme.success', 'Success'], ['theme.successBright', 'Success bright'],
+    ['theme.danger', 'Error'], ['theme.dangerSoft', 'Error soft']]]
+];
+
+const COPY_FIELDS = [
+  ['copy.joinTitle', 'Join page title'], ['copy.joinPill', 'Pill label'],
+  ['copy.joinHeadline', 'Headline (one line per row)', 'area'],
+  ['copy.joinHeadlineAccent', 'Headline accent word'],
+  ['copy.joinSubcopy', 'Sub-copy', 'area'],
+  ['copy.joinCta', 'Join button'], ['copy.joinAlready', 'Returning-customer link'],
+  ['copy.consentText', 'Marketing consent wording', 'area'],
+  ['copy.cardTitle', 'Card page title'], ['copy.cardWelcome', 'Card greeting'],
+  ['copy.cardQrLabel', 'QR caption'], ['copy.cardActivityTitle', 'Activity heading'],
+  ['copy.cardActivityEmpty', 'Empty activity message'], ['copy.cardRewardsTitle', 'Points rewards heading'],
+  ['copy.shopTitle', 'Till page title'], ['copy.shopHeading', 'Till heading'],
+  ['copy.adminTitle', 'Admin page title'], ['copy.adminHeading', 'Admin heading'],
+  ['copy.pwaName', 'Installed app name'], ['copy.pwaShortName', 'Installed app short name']
+];
+
+const PROGRAMME_FIELDS = [
+  ['identity.shortName', 'Short brand name'], ['identity.contactEmail', 'Contact email'],
+  ['locale.currencySymbol', 'Currency symbol'], ['locale.currencyCode', 'Currency code'],
+  ['locale.timeZone', 'Time zone (IANA)'], ['locale.language', 'Language tag'],
+  ['programme.quickSpend', 'Till quick amounts (e.g. [5,10,20])'],
+  ['programme.quickStamp', 'Till quick stamp counts'],
+  ['programme.stampIcon', 'Stamp icon (cup / trophy / star / heart / ball)'],
+  ['programme.stampEmojiFilled', 'Wallet stamp symbol'],
+  ['programme.defaultItemNoun', 'Default stamp item word'],
+  ['wallet.classSuffix', 'Google Wallet class suffix'],
+  ['wallet.programName', 'Google Wallet programme name']
+];
+
+function pathValue(obj, path) {
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+async function loadBranding() {
+  brandState = await api('/api/admin/branding');
+  renderPresets();
+  renderColours();
+  renderAssets();
+  renderCopy();
+  renderProgramme();
+  $('privacyText').value = brandState.config.copy.privacyPolicy || '';
+  refreshPreview();
+}
+
+function renderPresets() {
+  const row = $('presetRow');
+  row.innerHTML = '';
+  brandState.presets.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'preset-btn';
+    b.title = p.description;
+    b.innerHTML = `<span style="display:inline-block;width:11px;height:11px;border-radius:3px;
+      background:${p.theme.brandPrimary};margin-right:7px;vertical-align:middle"></span>
+      <span style="display:inline-block;width:11px;height:11px;border-radius:3px;
+      background:${p.theme.accent};margin-right:9px;vertical-align:middle"></span>${p.name}`;
+    b.onclick = async () => {
+      if (!confirm(`Apply the "${p.name}" palette? This replaces all current colours.`)) return;
+      await api('/api/admin/branding/preset/' + p.id, { method: 'POST' });
+      await loadBranding();
+    };
+    row.appendChild(b);
+  });
+}
+
+function renderColours() {
+  const grid = $('colourGrid');
+  grid.innerHTML = '';
+  COLOUR_GROUPS.forEach(([groupName, entries]) => {
+    const head = document.createElement('div');
+    head.style.cssText = 'grid-column:1/-1;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#999;font-weight:700;margin-top:6px';
+    head.textContent = groupName;
+    grid.appendChild(head);
+    entries.forEach(([path, label]) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'swatch';
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.dataset.path = path;
+      input.value = pathValue(brandState.config, path) || '#000000';
+      const lab = document.createElement('label');
+      lab.textContent = label;
+      wrap.append(input, lab);
+      grid.appendChild(wrap);
+    });
+  });
+  renderContrast();
+}
+
+// Surfaced so a client cannot quietly make their own site unreadable.
+function renderContrast() {
+  const c = brandState.contrast;
+  const checks = [
+    [c.onAccentOnAccent, 'Button text on the accent colour'],
+    [c.whiteOnPrimaryDeep, 'White text on the darkest brand colour'],
+    [c.primaryOnSurface, 'Headings on the admin background']
+  ];
+  const bad = checks.filter(([ratio]) => ratio < 4.5);
+  $('contrastWarnings').innerHTML = bad.length === 0 ? '' :
+    `<div class="warn"><b>Low contrast:</b> ${bad.map(([r, what]) =>
+      `${what} (${r}:1, want 4.5:1)`).join('; ')}. Text may be hard to read.</div>`;
+}
+
+function renderAssets() {
+  const grid = $('assetGrid');
+  grid.innerHTML = '';
+  brandState.assets.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'asset-card';
+    card.innerHTML = `<img src="${a.url}" alt="">
+      <div class="nm">${a.name}</div>
+      <span class="badge ${a.custom ? 'on' : 'off'}">${a.custom ? 'custom' : 'default'}</span>`;
+    const file = document.createElement('input');
+    file.type = 'file';
+    file.accept = 'image/png,image/jpeg,image/webp,image/svg+xml';
+    file.style.cssText = 'display:block;width:100%;font-size:.7rem;margin-top:8px';
+    file.onchange = async () => {
+      if (!file.files[0]) return;
+      const body = new FormData();
+      body.append('file', file.files[0]);
+      const res = await fetch('/api/admin/branding/asset/' + a.name,
+        { method: 'POST', headers: { 'X-Pin': pinVal }, body });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || 'Upload failed'); return; }
+      await loadBranding();
+    };
+    card.appendChild(file);
+    if (a.custom) {
+      const revert = document.createElement('button');
+      revert.className = 'small';
+      revert.textContent = 'Revert to default';
+      revert.style.marginTop = '6px';
+      revert.onclick = async () => {
+        await api('/api/admin/branding/asset/' + a.name, { method: 'DELETE' });
+        await loadBranding();
+      };
+      card.appendChild(revert);
+    }
+    grid.appendChild(card);
+  });
+}
+
+function renderFields(container, fields) {
+  container.innerHTML = '';
+  fields.forEach(([path, label, kind]) => {
+    const row = document.createElement('div');
+    row.className = 'copy-row';
+    const lab = document.createElement('label');
+    lab.textContent = label;
+    const input = document.createElement(kind === 'area' ? 'textarea' : 'input');
+    if (kind === 'area') input.rows = 2;
+    input.dataset.path = path;
+    const value = pathValue(brandState.config, path);
+    input.value = Array.isArray(value) ? JSON.stringify(value) : (value ?? '');
+    row.append(lab, input);
+    container.appendChild(row);
+  });
+}
+
+const renderCopy = () => renderFields($('copyFields'), COPY_FIELDS);
+const renderProgramme = () => renderFields($('programmeFields'), PROGRAMME_FIELDS);
+
+function collect(selector) {
+  const payload = {};
+  document.querySelectorAll(selector).forEach(el => {
+    let v = el.value;
+    // Array-valued settings are typed as JSON in the field.
+    if (v.trim().startsWith('[')) { try { v = JSON.parse(v); } catch (e) { /* send as text, server keeps the default */ } }
+    payload[el.dataset.path] = v;
+  });
+  return payload;
+}
+
+async function saveBranding(payload, msgEl) {
+  const d = await api('/api/admin/branding', { method: 'PUT', body: JSON.stringify(payload) });
+  $(msgEl).textContent = d.rejected && d.rejected.length
+    ? `Saved ${d.updated}; ignored ${d.rejected.join(', ')}`
+    : `Saved ${d.updated} setting${d.updated === 1 ? '' : 's'}`;
+  setTimeout(() => { $(msgEl).textContent = ''; }, 4000);
+  await loadBranding();
+}
+
+$('brandSaveColours').onclick = () => saveBranding(collect('#colourGrid input[type=color]'), 'colourMsg');
+$('brandSaveCopy').onclick = () => saveBranding(collect('#copyFields [data-path]'), 'copyMsg');
+$('brandSaveProgramme').onclick = () => saveBranding(collect('#programmeFields [data-path]'), 'progMsg');
+$('brandSavePrivacy').onclick = () => saveBranding({ 'copy.privacyPolicy': $('privacyText').value }, 'privacyMsg');
+
+// Previews are cache-busted on the config version so a save is visible immediately.
+function refreshPreview() {
+  const v = brandState ? brandState.version : Date.now();
+  $('pvJoin').src = '/join.html?preview=' + v;
+  $('pvTill').src = '/shop/?preview=' + v;
+  api('/api/admin/customers').then(list => {
+    $('pvCard').src = list.length
+      ? '/card/' + list[0].token + '?preview=' + v
+      : '/join.html?preview=' + v;
+  }).catch(() => {});
+}
+$('refreshPreview').onclick = refreshPreview;
+
+$('exportConfig').onclick = async () => {
+  const res = await fetch('/api/admin/config-export', { headers: { 'X-Pin': pinVal } });
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'client.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
 async function loadSettings() {
   const s = await api('/api/admin/settings');
   $('sShop').value = s.shopName;
@@ -556,7 +867,7 @@ async function loadSettings() {
   $('sGIssuerId').value = s.googleWalletIssuerId || '';
   $('sGServiceAccountJson').value = '';
   $('gWalletStatus').innerHTML = s.googleWalletConfigured
-    ? '<span style="color:var(--green);font-weight:600">✓ Google Wallet configured</span> — customers will see a real Save to Google Wallet button after their next transaction.'
+    ? '<span style="color:var(--success);font-weight:600">✓ Google Wallet configured</span> — customers will see a real Save to Google Wallet button after their next transaction.'
     : '<span style="color:#999">Not configured — the button on the customer card is hidden until credentials are saved below.</span>';
   $('ruleRate').textContent = s.pointsPerPound;
   $('joinUrl').textContent = location.origin + '/join.html';
@@ -575,10 +886,10 @@ $('sGUpdateClass').onclick = async () => {
   $('sGMsg').style.color = '#888'; $('sGMsg').textContent = 'Updating pass design on Google…';
   try {
     await api('/api/admin/wallet-update-class', { method:'POST' });
-    $('sGMsg').style.color = 'var(--green)';
+    $('sGMsg').style.color = 'var(--success)';
     $('sGMsg').textContent = 'Pass design updated ✓ — customers may need to remove and re-add their pass to see the change.';
   } catch (e) {
-    $('sGMsg').style.color = 'var(--red)';
+    $('sGMsg').style.color = 'var(--danger)';
     $('sGMsg').textContent = 'Failed: ' + e.message;
   } finally {
     $('sGUpdateClass').disabled = false;
@@ -589,15 +900,15 @@ $('sGUpdateClass').onclick = async () => {
 $('sGSave').onclick = async () => {
   const issuerId = $('sGIssuerId').value.trim();
   const saJson = $('sGServiceAccountJson').value.trim();
-  if (!issuerId) { $('sGMsg').style.color = 'var(--red)'; $('sGMsg').textContent = 'Issuer ID required'; return; }
+  if (!issuerId) { $('sGMsg').style.color = 'var(--danger)'; $('sGMsg').textContent = 'Issuer ID required'; return; }
   if (saJson) {
-    try { JSON.parse(saJson); } catch { $('sGMsg').style.color = 'var(--red)'; $('sGMsg').textContent = 'Invalid JSON — paste the full .json file contents'; return; }
+    try { JSON.parse(saJson); } catch { $('sGMsg').style.color = 'var(--danger)'; $('sGMsg').textContent = 'Invalid JSON — paste the full .json file contents'; return; }
   }
   await api('/api/admin/settings', { method:'PUT', body: JSON.stringify({
     googleWalletIssuerId: issuerId,
     ...(saJson ? { googleWalletServiceAccountJson: saJson } : {})
   }) });
-  $('sGMsg').style.color = 'var(--green)';
+  $('sGMsg').style.color = 'var(--success)';
   $('sGMsg').textContent = 'Saved ✓'; setTimeout(() => $('sGMsg').textContent = '', 3000);
   loadSettings();
 };

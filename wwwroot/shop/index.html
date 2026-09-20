@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{htmlLang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#094582">
+<meta name="theme-color" content="{{themeColor}}">
 <link rel="manifest" href="/shop/manifest.json">
-<title>Till — QOSFC Loyalty</title>
+<link rel="stylesheet" href="/theme.css?v={{configVersion}}">
+<link rel="icon" href="{{asset.favicon}}">
+<title>{{copy.shopTitle}}</title>
 <style>
-  :root { --brown:#094582; --cream:#f0f4fa; --accent:#1a6abf; --green:#2e8b57; --red:#c0392b; }
   * { box-sizing:border-box; }
-  body { font-family:system-ui,-apple-system,sans-serif; background:var(--brown); color:#fff;
+  body { font-family:system-ui,-apple-system,sans-serif; background:var(--brand-primary); color:#fff;
          margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:16px; }
   h1 { font-size:1.1rem; margin:4px 0 16px; letter-spacing:.05em; }
   .panel { background:#fff; color:#222; border-radius:16px; padding:20px; width:100%; max-width:420px; }
@@ -18,25 +19,25 @@
           margin-bottom:12px; }
   button { width:100%; padding:16px; font-size:1.05rem; font-weight:700; border:none; border-radius:10px;
            cursor:pointer; margin-bottom:8px; }
-  .primary { background:var(--brown); color:#fff; }
-  .green { background:var(--green); color:#fff; }
+  .primary { background:var(--brand-primary); color:#fff; }
+  .green { background:var(--success); color:#fff; }
   .grey { background:#eee; color:#444; }
   video { width:100%; border-radius:12px; background:#000; }
   .scanline { position:relative; }
   .cust { text-align:center; margin-bottom:12px; }
-  .cust .nm { font-size:1.3rem; font-weight:700; color:var(--brown); }
-  .cust .pt { font-size:2.2rem; font-weight:800; color:var(--accent); }
+  .cust .nm { font-size:1.3rem; font-weight:700; color:var(--brand-primary); }
+  .cust .pt { font-size:2.2rem; font-weight:800; color:var(--accent-ui); }
   .cust .pt small { font-size:1rem; color:#999; font-weight:400; }
   .msg { text-align:center; padding:10px; border-radius:10px; margin-bottom:12px; font-weight:600; }
-  .msg.ok { background:#e8f6ee; color:var(--green); }
-  .msg.err { background:#fdecea; color:var(--red); }
+  .msg.ok { background:var(--success-tint); color:var(--success); }
+  .msg.err { background:var(--danger-tint); color:var(--danger); }
   .bigresult { text-align:center; padding:24px 12px; }
   .bigresult .icon { font-size:3rem; }
-  .bigresult .headline { font-size:1.3rem; font-weight:800; color:var(--brown); margin:8px 0; }
+  .bigresult .headline { font-size:1.3rem; font-weight:800; color:var(--brand-primary); margin:8px 0; }
   .bigresult .sub { color:#666; }
-  .discount { background:#fff7e0; border:2px dashed var(--accent); border-radius:12px; padding:14px;
-              margin:14px 0; font-weight:700; color:#8a5a00; }
-  .reward-btn { background:#eaf1fb; color:var(--brown); text-align:left; display:flex;
+  .discount { background:var(--accent-tint-soft); border:2px dashed var(--accent-ui); border-radius:12px; padding:14px;
+              margin:14px 0; font-weight:700; color:var(--accent-ink); }
+  .reward-btn { background:var(--brand-tint-8); color:var(--brand-primary); text-align:left; display:flex;
                 justify-content:space-between; font-weight:600; }
   .reward-btn:disabled { opacity:.45; }
   .topbar { width:100%; max-width:420px; display:flex; justify-content:space-between; align-items:center; }
@@ -47,8 +48,8 @@
   .quickbtns { display:flex; gap:6px; margin-bottom:10px; }
   .qbtn { flex:1; padding:14px 4px; border-radius:10px; border:none; cursor:pointer;
           font-weight:700; font-size:1rem; margin-bottom:0; }
-  .qspend { background:#e8f6ee; color:var(--green); }
-  .qstamp { background:#eaf1fb; color:var(--brown); }
+  .qspend { background:var(--success-tint); color:var(--success); }
+  .qstamp { background:var(--brand-tint-8); color:var(--brand-primary); }
   .custom-row { display:flex; gap:8px; margin-bottom:8px; }
   .custom-row input { flex:1; width:auto; margin-bottom:0; }
   .custom-row button { width:auto; padding:14px 18px; margin-bottom:0; white-space:nowrap; }
@@ -58,8 +59,8 @@
 <body>
 <div class="topbar">
   <h1 style="display:flex;align-items:center;gap:8px">
-    <img src="/logo.jpg" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:contain">
-    Till
+    <img src="{{asset.logo}}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:contain">
+    {{copy.shopHeading}}
   </h1>
   <button id="logoutBtn" class="hidden">Lock</button>
 </div>
@@ -73,7 +74,7 @@
 
 <div class="panel hidden" id="scanPanel">
   <div class="scanline"><video id="video" playsinline muted></video></div>
-  <p style="text-align:center;color:#666;font-size:.9rem">Point camera at the customer's QR code</p>
+  <p style="text-align:center;color:#666;font-size:.9rem">{{copy.shopScanHint}}</p>
   <button class="grey" id="manualBtn">Type code manually</button>
   <div class="hidden" id="manualBox">
     <input id="manualToken" placeholder="Card code (e.g. a1b2c3d4e5f6a7b8)">
@@ -89,29 +90,19 @@
   <div class="msg err hidden" id="actErr"></div>
 
   <label>Spend</label>
-  <div class="quickbtns">
-    <button class="qbtn qspend" data-pounds="5">£5</button>
-    <button class="qbtn qspend" data-pounds="10">£10</button>
-    <button class="qbtn qspend" data-pounds="20">£20</button>
-  </div>
+  <div class="quickbtns" id="quickSpend"></div>
   <div class="custom-row">
-    <input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="Custom £">
+    <input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="{{copy.shopCustomAmount}}">
     <button class="green" id="earnBtn">Add</button>
   </div>
 
   <div id="stampSection" class="hidden section-divider">
     <label>Stamps</label>
     <select id="stampSelect" style="margin-bottom:10px"></select>
-    <div class="quickbtns">
-      <button class="qbtn qstamp" data-count="1">1</button>
-      <button class="qbtn qstamp" data-count="2">2</button>
-      <button class="qbtn qstamp" data-count="3">3</button>
-      <button class="qbtn qstamp" data-count="4">4</button>
-      <button class="qbtn qstamp" data-count="5">5</button>
-    </div>
+    <div class="quickbtns" id="quickStamp"></div>
     <div class="custom-row">
       <input id="stampCount" type="number" inputmode="numeric" min="1" max="99" step="1" placeholder="Custom">
-      <button class="primary" id="stampBtn">⚽ Add</button>
+      <button class="primary" id="stampBtn">{{programme.stampEmojiFilled}} Add</button>
     </div>
   </div>
 
@@ -157,8 +148,9 @@ async function api(path, opts = {}) {
 $('loginBtn').onclick = async () => {
   pinVal = $('pin').value;
   try {
-    await api('/api/shop/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) });
+    const cfg = await api('/api/shop/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) });
     localStorage.setItem('staffPin', pinVal);
+    renderQuickButtons(cfg);
     show('scanPanel');
   } catch (e) { $('loginErr').textContent = e.message; $('loginErr').classList.remove('hidden'); }
 };
@@ -263,10 +255,30 @@ $('stampBtn').onclick = async () => {
   await doStamp(count);
 };
 
-document.querySelectorAll('.qbtn.qspend').forEach(b =>
-  b.onclick = () => doEarn(parseFloat(b.dataset.pounds)));
-document.querySelectorAll('.qbtn.qstamp').forEach(b =>
-  b.onclick = () => doStamp(parseInt(b.dataset.count, 10)));
+// Quick buttons are rendered from the client's programme config, not hardcoded amounts.
+let CURRENCY = { symbol: {{js:locale.currencySymbol}}, digits: {{js:locale.currencyMinorDigits}} };
+
+function renderQuickButtons(cfg) {
+  if (cfg.currencySymbol) CURRENCY = { symbol: cfg.currencySymbol, digits: cfg.currencyMinorDigits };
+  const spend = $('quickSpend');
+  spend.innerHTML = '';
+  (cfg.quickSpend || []).forEach(amount => {
+    const b = document.createElement('button');
+    b.className = 'qbtn qspend';
+    b.textContent = CURRENCY.symbol + amount;
+    b.onclick = () => doEarn(amount);
+    spend.appendChild(b);
+  });
+  const stamp = $('quickStamp');
+  stamp.innerHTML = '';
+  (cfg.quickStamp || []).forEach(count => {
+    const b = document.createElement('button');
+    b.className = 'qbtn qstamp';
+    b.textContent = count;
+    b.onclick = () => doStamp(count);
+    stamp.appendChild(b);
+  });
+}
 
 async function redeem(rewardId, name) {
   if (!confirm(`Redeem "${name}" for this customer?`)) return;
@@ -294,7 +306,8 @@ $('doneBtn').onclick = () => show('scanPanel');
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/shop/sw.js');
 if (pinVal) {
   api('/api/shop/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) })
-    .then(() => show('scanPanel')).catch(() => show('loginPanel'));
+    .then(cfg => { renderQuickButtons(cfg); show('scanPanel'); })
+    .catch(() => show('loginPanel'));
 } else show('loginPanel');
 </script>
 </body>
