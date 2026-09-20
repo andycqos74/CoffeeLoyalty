@@ -4,10 +4,64 @@ using System.Text.Json;
 using System.Threading.Channels;
 using CoffeeLoyalty.Branding;
 using CoffeeLoyalty.Config;
+using Microsoft.AspNetCore.HostFiltering;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Data.Sqlite;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Host allowlist. Deployment concern rather than client branding, so it comes from the
+// environment: ALLOWED_HOSTS="qos.myloyalty.com,loyalty.mycafe.com". Unset means allow all,
+// which is only safe because the container is not directly reachable from the internet.
+var allowedHosts = Environment.GetEnvironmentVariable("ALLOWED_HOSTS");
+if (!string.IsNullOrWhiteSpace(allowedHosts))
+{
+    var hosts = allowedHosts.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries
+                                                     | StringSplitOptions.TrimEntries);
+    builder.Services.PostConfigure<HostFilteringOptions>(o => o.AllowedHosts = hosts);
+}
+
 var app = builder.Build();
+
+// ---------------------------------------------------------------------------
+// Reverse proxy / tunnel awareness
+//
+// cloudflared (or a reverse proxy) terminates TLS and forwards to this container over
+// plain HTTP. Without this, req.Scheme is "http" and every absolute URL built from it is
+// wrong — including the programme logo URI handed to Google Wallet, which Google fetches
+// from its own servers.
+//
+// X-Forwarded-Host is deliberately NOT trusted: cloudflared and Traefik both pass the
+// original Host through natively, and honouring the header would let a caller rewrite the
+// hostname in generated URLs.
+// ---------------------------------------------------------------------------
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor,
+    ForwardLimit = null   // the proxy may be several hops away inside the Docker network
+};
+forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+
+// Defaults cover loopback and the RFC1918 ranges Docker networks live on. Override with
+// TRUSTED_PROXY_NETWORKS="10.0.0.0/8,172.18.0.0/16", or "none" to ignore forwarded headers.
+var trustedProxies = Environment.GetEnvironmentVariable("TRUSTED_PROXY_NETWORKS")
+                     ?? "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16";
+if (!trustedProxies.Equals("none", StringComparison.OrdinalIgnoreCase))
+{
+    foreach (var cidr in trustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries
+                                                 | StringSplitOptions.TrimEntries))
+    {
+        if (System.Net.IPNetwork.TryParse(cidr, out var parsed))
+            forwardedOptions.KnownNetworks.Add(new IPNetwork(parsed.BaseAddress, parsed.PrefixLength));
+        else
+            app.Logger.LogWarning("Ignoring unparseable TRUSTED_PROXY_NETWORKS entry: {cidr}", cidr);
+    }
+    app.UseForwardedHeaders(forwardedOptions);
+}
+
+// Note: no UseHttpsRedirection. TLS is terminated at the tunnel/proxy and this container
+// only ever speaks HTTP, so redirecting here would loop.
 
 // ---------------------------------------------------------------------------
 // Database
@@ -151,6 +205,42 @@ async Task EnsureWalletClass(GoogleWalletService svc, string issuerName, string 
         ? cfg.Theme.BrandPrimary
         : cfg.Wallet.BackgroundColor;
     await svc.EnsureClassExists(issuerName, programName, baseUrl, background, assets.Url("walletLogo"), cfg.Locale.Language);
+}
+
+// The establishment's own name and programme label. These used to be read from the
+// `shop_name` / `wallet_program_name` settings rows, which are no longer seeded — config
+// maps those rows when an existing install has them and falls back to client.json.
+string ShopName() => clientConfig.Current.Identity.ShopName;
+string WalletProgramName()
+{
+    var configured = clientConfig.Current.Wallet.ProgramName;
+    return string.IsNullOrWhiteSpace(configured) ? $"{ShopName()} Loyalty" : configured;
+}
+
+// Absolute origin for URLs that leave the app — currently the Google Wallet programme
+// logo, which Google fetches from its own servers.
+//
+// A configured identity.publicBaseUrl always wins. Without one we fall back to the
+// requesting host and remember it, so a single-hostname install keeps working with no
+// configuration; but a client reachable on two hostnames should set it explicitly or the
+// stored value flaps between them.
+string ResolvedBaseUrl(SqliteConnection c, HttpRequest? req)
+{
+    var configured = clientConfig.Current.Identity.PublicBaseUrl.Trim().TrimEnd('/');
+    if (configured.Length > 0) return configured;
+    if (req is not null) return $"{req.Scheme}://{req.Host}";
+    return GetSetting(c, "public_base_url");
+}
+
+// Only remembers the request host when no canonical URL is configured.
+void RememberBaseUrl(SqliteConnection c, HttpRequest req)
+{
+    if (clientConfig.Current.Identity.PublicBaseUrl.Trim().Length > 0) return;
+    var cmd = c.CreateCommand();
+    cmd.CommandText = "INSERT INTO settings (key,value) VALUES ($k,$v) ON CONFLICT(key) DO UPDATE SET value=$v";
+    cmd.Parameters.AddWithValue("$k", "public_base_url");
+    cmd.Parameters.AddWithValue("$v", $"{req.Scheme}://{req.Host}");
+    cmd.ExecuteNonQuery();
 }
 
 /// Formats minor currency units using the client's symbol and decimal places.
@@ -310,14 +400,13 @@ async Task NotifyWallet(string token)
 
         var cust = FindCustomerByToken(c, token);
         if (cust is null) return;
-        var shopName = GetSetting(c, "shop_name");
+        var shopName = ShopName();
         var points = PointsBalance(c, cust.Value.id);
         var stampModules = StampModulesForPass(c, points);
 
         var svc = WalletService(c);
-        var publicBase = GetSetting(c, "public_base_url");
-        var programName = GetSetting(c, "wallet_program_name");
-        if (string.IsNullOrEmpty(programName)) programName = $"{shopName} Loyalty";
+        var publicBase = ResolvedBaseUrl(c, null);
+        var programName = WalletProgramName();
         await EnsureWalletClass(svc, shopName, programName, publicBase);
         await svc.UpsertObject(token, cust.Value.name, points, programName, stampModules);
     }
@@ -351,18 +440,13 @@ app.MapPost("/api/admin/wallet-update-class", async (HttpRequest req) =>
     if (string.IsNullOrEmpty(issuerId) || string.IsNullOrEmpty(saJson))
         return Results.Json(new { error = "Credentials not configured" }, statusCode: 400);
 
-    var baseUrl = $"{req.Scheme}://{req.Host}";
-    // Persist for future background calls
-    var sc2 = c.CreateCommand();
-    sc2.CommandText = "INSERT INTO settings (key,value) VALUES ($k,$v) ON CONFLICT(key) DO UPDATE SET value=$v";
-    sc2.Parameters.AddWithValue("$k", "public_base_url"); sc2.Parameters.AddWithValue("$v", baseUrl);
-    sc2.ExecuteNonQuery();
+    var baseUrl = ResolvedBaseUrl(c, req);
+    RememberBaseUrl(c, req);   // only when no canonical URL is configured
 
     try
     {
-        var shopName = GetSetting(c, "shop_name");
-        var programName = GetSetting(c, "wallet_program_name");
-        if (string.IsNullOrEmpty(programName)) programName = $"{shopName} Loyalty";
+        var shopName = ShopName();
+        var programName = WalletProgramName();
         var svc = WalletService(c);
         await EnsureWalletClass(svc, shopName, programName, baseUrl);
         return Results.Ok(new { ok = true, baseUrl });
@@ -371,6 +455,27 @@ app.MapPost("/api/admin/wallet-update-class", async (HttpRequest req) =>
     {
         return Results.Json(new { error = ex.Message }, statusCode: 500);
     }
+});
+
+// What the app believes about how it is being reached. The first thing to check when a
+// client's DNS, tunnel or proxy is newly wired up, or when Wallet passes show a broken logo.
+app.MapGet("/api/admin/diagnostics", (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    using var c = Open();
+    var configured = clientConfig.Current.Identity.PublicBaseUrl.Trim().TrimEnd('/');
+    return Results.Ok(new
+    {
+        requestScheme = req.Scheme,                       // "https" only if a trusted proxy said so
+        requestHost = req.Host.Value,
+        forwardedProto = req.Headers["X-Forwarded-Proto"].ToString(),
+        remoteIp = req.HttpContext.Connection.RemoteIpAddress?.ToString(),
+        configuredBaseUrl = configured,
+        rememberedBaseUrl = GetSetting(c, "public_base_url"),
+        effectiveBaseUrl = ResolvedBaseUrl(c, req),       // what Google Wallet is given
+        allowedHosts = Environment.GetEnvironmentVariable("ALLOWED_HOSTS") ?? "(any)",
+        trustedProxyNetworks = Environment.GetEnvironmentVariable("TRUSTED_PROXY_NETWORKS") ?? "(defaults)"
+    });
 });
 
 app.MapGet("/api/admin/wallet-test", async (HttpRequest req) =>
@@ -385,9 +490,8 @@ app.MapGet("/api/admin/wallet-test", async (HttpRequest req) =>
     try
     {
         var svc = WalletService(c);
-        var baseUrl = $"{req.Scheme}://{req.Host}";
-        var shopName = GetSetting(c, "shop_name");
-        var result = await svc.TestConnection(shopName, baseUrl);
+        var baseUrl = ResolvedBaseUrl(c, req);
+        var result = await svc.TestConnection(ShopName(), baseUrl);
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -528,24 +632,17 @@ app.MapGet("/api/wallet/google/{token}", async (string token, HttpRequest req) =
     var cust = FindCustomerByToken(c, token);
     if (cust is null) return Results.NotFound(new { error = "Unknown card" });
 
-    var shopName = GetSetting(c, "shop_name");
+    var shopName = ShopName();
     var points = PointsBalance(c, cust.Value.id);
-    var baseUrl = $"{req.Scheme}://{req.Host}";
+    var baseUrl = ResolvedBaseUrl(c, req);
 
     try
     {
-        // Persist the public URL so background NotifyWallet calls use the real hostname
-        void SaveSetting(string key, string val) {
-            var sc = c.CreateCommand();
-            sc.CommandText = "INSERT INTO settings (key,value) VALUES ($k,$v) ON CONFLICT(key) DO UPDATE SET value=$v";
-            sc.Parameters.AddWithValue("$k", key); sc.Parameters.AddWithValue("$v", val);
-            sc.ExecuteNonQuery();
-        }
-        if (!string.IsNullOrEmpty(baseUrl)) SaveSetting("public_base_url", baseUrl);
+        // Remember the host for background NotifyWallet calls, unless a canonical URL is set.
+        RememberBaseUrl(c, req);
 
         var stampModules = StampModulesForPass(c, points);
-        var programName2 = GetSetting(c, "wallet_program_name");
-        if (string.IsNullOrEmpty(programName2)) programName2 = $"{shopName} Loyalty";
+        var programName2 = WalletProgramName();
         var svc = WalletService(c);
         await EnsureWalletClass(svc, shopName, programName2, baseUrl);
         var url = svc.SaveUrl(token, cust.Value.name, points, programName2, stampModules);
@@ -1048,7 +1145,8 @@ app.MapGet("/api/admin/settings", (HttpRequest req) =>
     return Results.Ok(new
     {
         shopName = cfg.Identity.ShopName,
-        walletProgramName = cfg.Wallet.ProgramName,
+        // Derived when blank, so the field shows what the pass will actually say.
+        walletProgramName = WalletProgramName(),
         pointsPerPound = cfg.Programme.PointsPerUnit.ToString(),
         staffPin = GetSetting(c, "staff_pin"),
         googleWalletIssuerId = GetSetting(c, "google_wallet_issuer_id"),

@@ -22,6 +22,47 @@ services:
 Point `CLIENT_CONFIG_DIR` somewhere else if you need to; it defaults to `config/` next to
 the binary.
 
+## Hostnames, TLS and the proxy
+
+TLS is terminated upstream — by cloudflared, or by a reverse proxy in front of these
+containers — and the container itself only ever speaks plain HTTP. Three environment
+variables cover the difference:
+
+| Variable | Purpose |
+|---|---|
+| `ALLOWED_HOSTS` | Comma-separated host allowlist. Omit to allow any host. |
+| `TRUSTED_PROXY_NETWORKS` | Networks whose `X-Forwarded-Proto` / `-For` headers are believed. Defaults to loopback plus the RFC1918 ranges Docker uses. `none` ignores them. |
+| `CLIENT_CONFIG_DIR` | Where `client.json` and `assets/` are mounted. Defaults to `config/`. |
+
+Without the forwarded-header handling the app would see `http` as the request scheme and
+hand Google Wallet an `http://` logo URL, so leave `TRUSTED_PROXY_NETWORKS` alone unless
+your proxy sits outside those ranges. `X-Forwarded-Host` is deliberately not trusted —
+cloudflared and Traefik pass the real `Host` through, and honouring the header would let a
+caller rewrite the hostname in generated URLs.
+
+### `identity.publicBaseUrl`
+
+Set this whenever a client is reachable on **more than one** hostname — for example your
+subdomain plus their own domain:
+
+```json
+{ "identity": { "publicBaseUrl": "https://loyalty.mycafe.com" } }
+```
+
+Google Wallet stores the programme logo URL on its own servers. Without a canonical value
+the app falls back to whichever host made the most recent request and remembers it, so a
+two-hostname client would see the stored URL flap between domains. Single-hostname clients
+can leave it blank.
+
+### Changing a client's hostname later is disruptive
+
+`localStorage` (the saved card token), the installed PWA's `start_url` and the service
+worker scope are all per-origin. Moving a live client to a new domain means existing
+customers' "Open my card" no longer finds their token and their home-screen icon points at
+the old host. Their Google Wallet passes are unaffected, and the QR survives either way —
+the till accepts both a raw token and a full URL. **Settle the hostname before a client
+goes live**, and if you must move one, keep the old host permanently redirecting.
+
 ## The database is the source of truth
 
 Resolution order for every value:

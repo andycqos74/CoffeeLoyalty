@@ -14,6 +14,12 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      # Host allowlist. Comma-separated; omit to allow any host.
+      # - ALLOWED_HOSTS=qos.myloyalty.com,loyalty.mycafe.com
+      # Networks whose X-Forwarded-Proto/-For headers are trusted. The default covers
+      # loopback and the RFC1918 ranges Docker networks use, which is what cloudflared or
+      # a reverse proxy container connects from. Set to "none" to ignore the headers.
+      # - TRUSTED_PROXY_NETWORKS=172.16.0.0/12
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/api/admin/wallet-status"]
       interval: 30s

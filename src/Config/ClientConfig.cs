@@ -27,6 +27,15 @@ public sealed record IdentityConfig
     /// <summary>Short form for tight spaces (page headers, brand line).</summary>
     public string ShortName { get; init; } = "Queen of the South";
     public string ContactEmail { get; init; } = "hello@queensofthecafe.co.uk";
+
+    /// <summary>
+    /// Canonical absolute origin, e.g. "https://qos.myloyalty.com". Set this whenever a
+    /// client is reachable on more than one hostname: Google Wallet stores the programme
+    /// logo URL on its own servers, so letting it follow whichever host happened to make
+    /// the last request makes the pass design flap between domains. Blank falls back to
+    /// the request's own scheme and host.
+    /// </summary>
+    public string PublicBaseUrl { get; init; } = "";
 }
 
 public sealed record LocaleConfig
@@ -173,7 +182,9 @@ public sealed record CopyConfig
 
 public sealed record WalletConfig
 {
-    public string ProgramName { get; init; } = "QOSFC Loyalty";
+    /// <summary>Blank derives "{shopName} Loyalty" — a per-client default must never be
+    /// another client's programme name.</summary>
+    public string ProgramName { get; init; } = "";
     /// <summary>
     /// Google Wallet class is {issuerId}.{classSuffix}. Clients sharing one platform issuer MUST
     /// have distinct suffixes or they overwrite each other's pass design on Google's servers.
