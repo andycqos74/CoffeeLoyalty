@@ -1,0 +1,73 @@
+/* Admin -> Pages editor (admin/pages.js). Uses the admin page's colours (--brown, --accent, --green, --red). */
+.pg-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.pg-muted { color: #778; font-size: .85rem; margin: 4px 0 0; }
+.pg-tabs { display: flex; gap: 4px; background: #e2eaf6; padding: 4px; border-radius: 10px; }
+.pg-tab { border: 0; background: none; padding: 8px 14px; border-radius: 7px; cursor: pointer; font-size: .9rem; color: #345; }
+.pg-tab[aria-selected="true"] { background: #fff; color: var(--brown); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.pg-bar { display: flex; align-items: center; gap: 10px; }
+.pg-status { font-size: .85rem; color: #667; }
+.pg-bar button:disabled { opacity: .45; cursor: default; }
+.pg-body { display: grid; grid-template-columns: minmax(0, 1fr) 410px; gap: 20px; align-items: start; }
+@media (max-width: 980px) { .pg-body { grid-template-columns: 1fr; } .pg-preview { position: static !important; } }
+.pg-section h2 { margin: 0 0 12px; }
+.pg-field { padding: 12px 0; border-top: 1px solid #eef2f8; }
+.pg-field:first-of-type { border-top: 0; }
+.pg-field.is-changed { box-shadow: inset 3px 0 0 var(--accent); padding-left: 10px; margin-left: -10px; }
+.pg-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.pg-label { font-size: .85rem; font-weight: 600; color: #234; }
+.pg-field input[type="text"], .pg-field textarea { width: 100%; font: inherit; font-size: .95rem; }
+.pg-field textarea { resize: vertical; line-height: 1.45; }
+.pg-rich { font-family: ui-monospace, Consolas, monospace; font-size: .85rem !important; }
+.pg-help { font-size: .8rem; color: #889; margin: 6px 0 0; line-height: 1.45; }
+.pg-image { display: flex; gap: 14px; align-items: flex-start; }
+.pg-thumb { flex: none; width: 140px; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: #e8edf5;
+  display: grid; place-items: center; color: #99a; font-size: .8rem; }
+.pg-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pg-thumb.is-logo { width: 84px; aspect-ratio: 1; background: #fff; border: 1px solid #e0e6ef; }
+.pg-thumb.is-logo img { object-fit: contain; padding: 6px; }
+.pg-image-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pg-path { font-size: .75rem; color: #667; word-break: break-all; }
+.pg-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-animate { background: #efe7fb !important; color: #5b3a99; }
+.pg-preview { position: sticky; top: 12px; }
+.pg-phone { width: 390px; max-width: 100%; height: 760px; border-radius: 36px; overflow: hidden; background: #000;
+  box-shadow: 0 0 0 10px #111a24, 0 18px 40px rgba(0,0,0,.25); margin: 10px auto 18px; }
+.pg-frame { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+.pg-preview .pg-muted { text-align: center; }
+.pg-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #123; color: #fff; padding: 11px 18px;
+  border-radius: 10px; font-size: .9rem; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: 90vw; }
+.pg-toast.is-error { background: var(--red); }
+.pg-modal { position: fixed; inset: 0; background: rgba(10,20,35,.55); z-index: 900; display: grid; place-items: center; padding: 16px; }
+.pg-modal-box { background: #fff; border-radius: 14px; width: min(760px, 100%); max-height: 92vh; overflow: auto; padding: 18px 20px; }
+.pg-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.pg-modal-head h2 { margin: 0; }
+.pg-modal-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid #eef2f8; padding-top: 14px; margin-top: 14px; }
+.pg-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.pg-library-item { border: 2px solid transparent; border-radius: 10px; background: #f3f6fb; padding: 0; cursor: pointer; overflow: hidden; text-align: left; }
+.pg-library-item:hover, .pg-library-item:focus-visible { border-color: var(--accent); }
+.pg-library-item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.pg-library-item span { display: block; font-size: .72rem; color: #778; padding: 4px 8px; }
+.pg-anim-modal { width: min(1100px, 100%); }
+.pg-anim-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 20px; }
+@media (max-width: 760px) { .pg-anim-body { grid-template-columns: 1fr; } }
+.pg-anim-stage { position: relative; border-radius: 12px; overflow: hidden; background: #000; touch-action: none; }
+.pg-anim-stage.is-drawing { cursor: crosshair; outline: 3px dashed #f26b3a; }
+.pg-anim-player { width: 100%; max-height: 60vh; }
+.pg-anim-box { display: none; position: absolute; border: 2px dashed #fff; background: rgba(242,107,58,.25); pointer-events: none; }
+.pg-anim-controls { display: flex; flex-direction: column; gap: 14px; }
+.pg-anim-group { display: flex; flex-direction: column; gap: 6px; }
+.pg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-chip { background: #fff; color: var(--brown); border: 2px solid var(--brown); border-radius: 999px; padding: 5px 12px; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.pg-chip[aria-pressed="true"] { background: var(--brown); color: #fff; }
+.pg-range { display: flex; flex-direction: column; gap: 4px; }
+.pg-range input { width: 100%; padding: 0; border: 0; accent-color: var(--brown); }
+.pg-range output { font-weight: 400; color: #778; }
+.pg-check { font-size: .88rem; display: flex; gap: 8px; align-items: center; }
+.pg-anim-particles:empty { display: none; }
+.pg-anim-particles { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #e3e9f2; border-radius: 10px; }
+.pg-anim-ai textarea { width: 100%; font: inherit; }
+.pg-anim-ai .act { align-self: flex-start; }
+.pg-anim-note { background: #eef4fb; border-radius: 10px; padding: 10px 12px; font-size: .88rem; margin: 0; }
+.pg-anim-note.is-warn { background: #fde8dc; }
+.pg-modal-box { display: flex; flex-direction: column; }
+.pg-modal-foot { position: sticky; bottom: -18px; background: #fff; padding-bottom: 6px; z-index: 2; }

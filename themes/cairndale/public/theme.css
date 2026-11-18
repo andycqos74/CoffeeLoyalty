@@ -1,0 +1,145 @@
+/* The Oak at the Cairndale theme: direction 2b "Teal-led — the room after six" from the loyalty redesign.
+   Teal-slate #1E3A44 / #162C34, cream #FDFBEF, claret #9E1B26, rose #E5A0A6. Cormorant Garamond + Jost.
+   Structure is in /css/base.css; this file is the look. */
+:root { --teal: #1E3A44; --teal-deep: #162C34; --cream: #FDFBEF; --claret: #9E1B26; --rose: #E5A0A6; }
+@keyframes oakPulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+body { font-family: 'Jost', sans-serif; color: var(--cream); -webkit-font-smoothing: antialiased; }
+.serif, .headline, .subcopy { font-family: 'Cormorant Garamond', serif; }
+
+/* ---------------- Join ---------------- */
+.page-join { background: var(--teal); }
+.page-join .watermark { display: none; }
+.page-join .content { padding: 56px 32px 40px; }
+.brand { flex-direction: column; align-items: center; text-align: center; }
+.brand-logo { display: none; }
+.brand-name { font-family: 'Cormorant Garamond', serif; font-size: 14px; letter-spacing: .44em; text-transform: uppercase;
+  color: var(--cream); padding-left: .44em; }
+.brand-name::after { content: ""; display: block; width: 26px; height: 1px; background: var(--claret); margin: 14px auto 0; }
+.hero { margin-top: auto; padding-top: 48px; }
+.pill { font-size: 11px; letter-spacing: .26em; text-transform: uppercase; color: var(--rose); font-weight: 500; }
+.headline { font-size: 52px; line-height: 1; color: var(--cream); font-weight: 500; letter-spacing: -.015em; margin-top: 14px; }
+.headline em { font-style: italic; }
+.headline .accent { color: var(--rose); }
+.headline strong { font-family: 'Jost', sans-serif; font-size: .81em; font-weight: 600; letter-spacing: .01em; }
+.subcopy { font-style: italic; font-size: 17px; line-height: 1.6; color: rgba(253,251,239,.68); margin: 18px 0 0; max-width: 300px; }
+
+/* The photo fills the whole screen behind the words, as in the design. */
+.photo-block { position: static; margin-top: 30px; }
+.photo-bg { z-index: -1; }
+.photo-bg .photo { opacity: .55; object-position: center 40%; }
+.tint-1 { background: linear-gradient(180deg, rgba(30,58,68,.5) 0%, rgba(30,58,68,.78) 45%, var(--teal-deep) 100%); }
+.tint-2, .tint-3, .photo-fade { display: none; }
+
+.inputs { gap: 22px; }
+.field { gap: 8px; }
+.field-label { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: rgba(253,251,239,.55); }
+.opt { text-transform: none; letter-spacing: 0; color: rgba(253,251,239,.4); }
+.field input { background: transparent; border: none; border-bottom: 1px solid rgba(253,251,239,.28); border-radius: 0;
+  padding: 8px 0 10px; color: var(--cream); font-family: 'Jost', sans-serif; font-size: 17px; transition: border-color .15s; }
+.field input:focus { border-bottom-color: var(--rose); }
+.field input::placeholder { color: rgba(253,251,239,.3); }
+.cta { padding-top: 28px; gap: 11px; }
+.consent-row { margin-bottom: 6px; }
+.consent-row input[type="checkbox"] { accent-color: var(--claret); }
+.consent-label { font-size: 12.5px; line-height: 1.55; color: rgba(253,251,239,.62); }
+.err { color: var(--rose); font-size: 13px; }
+.btn-primary { background: var(--cream); color: var(--teal); padding: 19px; border-radius: 0; font-family: 'Jost', sans-serif;
+  font-size: 12.5px; letter-spacing: .22em; text-transform: uppercase; font-weight: 500; transition: background .15s; }
+.btn-primary:hover { background: #fff; }
+.btn-secondary { border: 1px solid rgba(253,251,239,.3); padding: 18px; transition: background .15s; }
+.btn-secondary:hover { background: rgba(253,251,239,.06); }
+.btn-secondary span { font-size: 12.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--cream); }
+.btn-secondary .arrow { display: none; }
+.privacy-link { margin-top: 6px; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 15px; color: rgba(253,251,239,.5); }
+.privacy-link:hover { color: var(--cream); }
+.back-banner { border: 1px solid rgba(229,160,166,.5); background: rgba(158,27,38,.14); padding: 16px; }
+.back-banner p { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--cream); margin: 0 0 12px; }
+.back-banner .btn-back { width: 100%; border: none; cursor: pointer; background: var(--cream); color: var(--teal); padding: 14px;
+  font-size: 11.5px; letter-spacing: .2em; text-transform: uppercase; font-weight: 500; }
+.modal-overlay { background: rgba(11,26,32,.86); }
+.modal-sheet { background: var(--cream); color: var(--teal); padding: 30px 28px 38px; }
+.modal-header { margin-bottom: 18px; }
+.modal-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 500; }
+.modal-close { background: transparent; border: 1px solid rgba(30,58,68,.25); color: var(--teal); width: 32px; height: 32px; }
+.modal-body h3 { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--claret); font-weight: 500; margin: 20px 0 6px; }
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body p { font-family: 'Cormorant Garamond', serif; font-size: 16.5px; line-height: 1.55; color: rgba(30,58,68,.82); margin: 0 0 4px; }
+.modal-body a { color: var(--claret); }
+
+/* ---------------- Card ---------------- */
+.page-card { background: var(--teal-deep); }
+.card-header { padding: 44px 32px 22px; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.card-header > div:nth-child(2) { order: 1; }
+.hdr-logo { display: none; }
+.hdr-sub { font-size: 11px; letter-spacing: .26em; text-transform: uppercase; color: var(--rose); font-weight: 500; }
+.hdr-name { font-family: 'Cormorant Garamond', serif; font-size: 38px; line-height: 1.1; color: var(--cream); font-weight: 500; margin-top: 4px; }
+.hdr-brand { order: 2; font-family: 'Cormorant Garamond', serif; font-size: 13px; letter-spacing: .4em; text-transform: uppercase;
+  color: rgba(253,251,239,.7); padding-top: 2px; white-space: nowrap; }
+.card-body { padding: 0 32px 44px; gap: 22px; }
+.qr-hero { background: var(--cream); color: var(--teal); padding: 26px 24px 22px; }
+.qr-glow { right: -36px; top: -64px; width: auto; height: auto; font-family: 'Cormorant Garamond', serif; font-size: 190px; line-height: 1;
+  color: rgba(30,58,68,.06); }
+.qr-glow::before { content: "O"; }
+.qr-label { font-size: 10.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--claret); font-weight: 500; }
+.qr-box { margin-top: 18px; width: 214px; background: var(--cream); padding: 14px; border: 1px solid rgba(30,58,68,.16); }
+.qr-box svg path { fill: var(--teal); }
+.qr-footer { margin-top: 16px; }
+.qr-cust-name { font-family: 'Cormorant Garamond', serif; font-size: 21px; color: var(--teal); }
+.live-dot { background: rgba(30,58,68,.3); }
+.live-dot.on { background: var(--claret); animation: oakPulse 1.8s ease-in-out infinite; }
+.live-txt { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: rgba(30,58,68,.55); }
+#rewardBanners:empty, #stampCards:empty, #pointsRewards:empty { display: none; }
+#rewardBanners, #stampCards { display: flex; flex-direction: column; gap: 14px; }
+.reward-banner { border: 1px solid rgba(158,27,38,.7); background: rgba(158,27,38,.14); padding: 15px 17px; }
+.reward-icon { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(229,160,166,.5); color: var(--rose); }
+.reward-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; line-height: 1.15; color: var(--cream); }
+.reward-sub { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 14px; color: rgba(253,251,239,.6); margin-top: 2px; }
+.stamp-card, .points-section { border: 1px solid rgba(253,251,239,.12); padding: 20px 20px 18px; }
+.stamp-card-header { margin-bottom: 16px; align-items: baseline; }
+.stamp-card-title, .points-section-title, .activity-title { font-size: 10.5px; letter-spacing: .24em; text-transform: uppercase;
+  color: rgba(253,251,239,.5); font-weight: 400; }
+.stamp-card-count { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--rose); }
+.stamp-grid { gap: 10px; }
+.stamp-slot { border: 1px solid rgba(253,251,239,.18); }
+.stamp-slot .s-body { fill: rgba(253,251,239,.05); stroke: rgba(253,251,239,.4); }
+.stamp-slot .s-line { stroke: rgba(253,251,239,.4); }
+.stamp-slot.filled { background: var(--claret); border-color: var(--claret); }
+.stamp-slot.filled .s-body { fill: var(--cream); stroke: var(--cream); }
+.stamp-slot.filled .s-line { stroke: var(--cream); }
+.points-section-title { margin-bottom: 6px; }
+.pts-reward { padding: 12px 0; border-bottom: 1px solid rgba(253,251,239,.1); }
+.pts-reward:last-child { border-bottom: none; }
+.pts-reward-name { font-family: 'Cormorant Garamond', serif; font-size: 19px; color: var(--cream); }
+.pts-reward-cost { font-family: 'Cormorant Garamond', serif; font-size: 16px; color: rgba(253,251,239,.55); }
+.pts-reward-cost.ready { color: var(--rose); }
+.activity-title { margin-bottom: 4px; }
+.act-row { padding: 12px 0; border-bottom: 1px solid rgba(253,251,239,.1); }
+.act-row:last-child { border-bottom: none; }
+.act-label { font-size: 14.5px; color: var(--cream); }
+.act-tag { font-family: 'Cormorant Garamond', serif; font-size: 17px; color: var(--rose); }
+.act-empty { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px; color: rgba(253,251,239,.5); padding: 10px 0; }
+.wallet-btns button { font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500;
+  padding: 15px; border-radius: 0; transition: background .15s; }
+.btn-google { border: none; background: var(--cream); color: var(--teal); }
+.btn-google:hover { background: #fff; }
+.tip { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 15px; color: rgba(253,251,239,.5); line-height: 1.5; }
+.tip strong { font-weight: 500; color: rgba(253,251,239,.75); }
+.card-photo { height: 300px; opacity: .35; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 70%);
+  mask-image: linear-gradient(to bottom, transparent, #000 70%); }
+.toast { background: var(--teal); color: var(--cream); border: 1px solid rgba(253,251,239,.2); padding: 12px 20px; font-size: .85rem; }
+
+/* ---------------- Add to Home Screen ---------------- */
+.install-bar { background: var(--teal); border-top: 1px solid rgba(253,251,239,.14); padding: 14px 18px; }
+.install-bar-icon { width: 38px; height: 38px; }
+.install-bar-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; color: var(--cream); }
+.install-bar-sub { font-size: 11.5px; color: rgba(253,251,239,.6); margin-top: 2px; }
+.install-bar-btn { background: var(--cream); color: var(--teal); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  font-weight: 500; padding: 10px 15px; }
+.install-bar-close { color: rgba(253,251,239,.5); }
+
+/* Square, outlined checkbox to match the design */
+.consent-row input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: 2px;
+  border: 1px solid rgba(253,251,239,.45); background: transparent; display: grid; place-items: center; }
+.consent-row input[type="checkbox"]:checked { background: var(--claret); border-color: var(--claret); }
+.consent-row input[type="checkbox"]:checked::after { content: "✓"; color: var(--cream); font-size: 12px; line-height: 1; }
+.consent-row input[type="checkbox"]:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }

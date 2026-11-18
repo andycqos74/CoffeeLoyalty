@@ -1,0 +1,140 @@
+/* Queen of the South Café theme: navy/royal blue, Space Grotesk + Manrope (design handoff "Option 2").
+   Structure is in /css/base.css; this file is the look. */
+@keyframes qosPulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+@keyframes qosPop { 0% { transform:scale(.6); opacity:0 } 60% { transform:scale(1.08) } 100% { transform:scale(1); opacity:1 } }
+body { font-family: 'Manrope', sans-serif; }
+
+/* ---------------- Join ---------------- */
+.page-join { background: radial-gradient(120% 80% at 80% 0%, #0d5396 0%, #08315b 55%, #052038 100%); }
+.page-join .watermark { right: -60px; top: 120px; width: 300px; height: 300px; opacity: .07; filter: brightness(0) invert(1); }
+.page-join .content { padding: 26px 26px 32px; }
+.brand { gap: 10px; }
+.brand-logo { width: 40px; height: 40px; border-radius: 50%; background: #fff; padding: 2px; object-fit: contain; }
+.brand-name { font-family: 'Space Grotesk', sans-serif; font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(255,255,255,.85); font-weight: 600; }
+.hero { margin-top: 56px; }
+.pill { display: inline-flex; align-items: center; background: rgba(0,159,255,.18);
+  border: 1px solid rgba(95,196,255,.35); color: #7fd0ff; font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; font-weight: 700; padding: 7px 13px; border-radius: 99px; }
+.headline { font-family: 'Space Grotesk', sans-serif; font-size: 52px; line-height: .98; font-weight: 700;
+  color: #fff; letter-spacing: -.02em; margin-top: 20px; }
+.headline .accent { color: #5fc4ff; }
+.subcopy { font-size: 15px; color: rgba(255,255,255,.78); margin: 18px 0 0; line-height: 1.5; max-width: 300px; }
+.photo-block { margin: 30px -26px 0; padding: 34px 26px 30px; min-height: 300px; }
+.photo-bg { -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 66%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 26%, #000 66%, transparent 100%); }
+.photo-bg .photo { opacity: .7; object-position: center 50%;
+  -webkit-mask-image: radial-gradient(140% 100% at 50% 50%, #000 40%, rgba(0,0,0,.55) 68%, transparent 92%);
+  mask-image: radial-gradient(140% 100% at 50% 50%, #000 40%, rgba(0,0,0,.55) 68%, transparent 92%); }
+.tint-1 { mix-blend-mode: multiply; background: radial-gradient(110% 90% at 50% 45%, rgba(13,83,150,.62) 0%, rgba(8,49,91,.84) 55%, #08315b 88%); }
+.tint-2 { mix-blend-mode: soft-light; background: linear-gradient(150deg, rgba(95,196,255,.4) 0%, rgba(13,83,150,.3) 50%, rgba(5,32,56,.5) 100%); }
+.tint-3 { background: radial-gradient(120% 80% at 50% 50%, rgba(6,29,51,.55) 0%, rgba(6,29,51,.15) 60%, transparent 100%); }
+.photo-fade { left: 0; right: 0; bottom: -1px; height: 46px;
+  background: linear-gradient(to bottom, rgba(8,49,91,0) 0%, rgba(8,49,91,.55) 55%, #08315b 100%); }
+.inputs { gap: 16px; }
+.field { gap: 8px; }
+.field-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: rgba(159,205,255,.85); }
+.opt { color: rgba(255,255,255,.55); font-weight: 600; letter-spacing: 0; text-transform: none; }
+.field input { background: rgba(7,30,52,.5); border: 1px solid rgba(255,255,255,.22); border-radius: 14px;
+  padding: 16px 17px; color: #fff; font-family: 'Manrope', sans-serif; font-size: 15px;
+  backdrop-filter: blur(8px); transition: border-color .15s, background .15s; }
+.field input:focus { border-color: #5fc4ff; background: rgba(95,196,255,.14); }
+.field input::placeholder { color: rgba(255,255,255,.35); }
+.cta { padding-top: 34px; gap: 12px; }
+.btn-primary { background: #009fff; color: #04243f; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+  font-size: 16px; padding: 18px; border-radius: 16px; box-shadow: 0 12px 28px rgba(0,159,255,.4); transition: background .15s; }
+.btn-primary:hover { background: #33b3ff; }
+.btn-secondary { padding: 4px; }
+.btn-secondary span { font-size: 13.5px; color: rgba(255,255,255,.85); font-weight: 600; }
+.btn-secondary .arrow { color: #5fc4ff; font-weight: 700; font-size: 15px; }
+.err { color: #ff8fa3; font-size: 13px; }
+.back-banner { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.4); border-radius: 16px; padding: 16px; }
+.back-banner p { font-size: 14px; color: rgba(255,255,255,.85); margin: 0 0 10px; }
+.back-banner .btn-back { width: 100%; border: none; cursor: pointer; background: #34d399; color: #04243f;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; padding: 14px; border-radius: 12px; }
+.consent-row input[type="checkbox"] { accent-color: #009fff; }
+.consent-label { font-size: 13px; color: rgba(255,255,255,.75); line-height: 1.45; }
+.privacy-link { font-size: 11.5px; color: rgba(255,255,255,.4); text-decoration: underline; text-decoration-color: rgba(255,255,255,.2); }
+.privacy-link:hover { color: rgba(255,255,255,.7); }
+.modal-overlay { background: rgba(3,14,26,.85); }
+.modal-sheet { background: #0d2d4a; border-radius: 22px 22px 0 0; padding: 28px 24px 36px; }
+.modal-header { margin-bottom: 18px; }
+.modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: #fff; }
+.modal-close { background: rgba(255,255,255,.1); color: #fff; width: 30px; height: 30px; border-radius: 50%; font-size: 16px; line-height: 1; }
+.modal-body h3 { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #7fd0ff;
+  text-transform: uppercase; letter-spacing: .1em; margin: 16px 0 5px; }
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body p { font-size: 13.5px; color: rgba(255,255,255,.75); line-height: 1.6; margin: 0 0 4px; }
+.modal-body a { color: #5fc4ff; }
+
+/* ---------------- Card ---------------- */
+.page-card { background: #061d33; }
+.card-header { padding: 20px 24px; gap: 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.hdr-logo { width: 42px; height: 42px; border-radius: 50%; background: #fff; padding: 2px; }
+.hdr-sub { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); font-weight: 600; }
+.hdr-name { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: #fff; }
+.hdr-brand { display: none; }
+.card-body { padding: 22px 22px 36px; gap: 18px; }
+.qr-hero { border-radius: 26px; padding: 22px;
+  background: radial-gradient(135% 95% at 80% 4%, #12588f 0%, #0a3e6c 52%, #062b4e 100%); box-shadow: 0 16px 34px rgba(6,51,95,.4); }
+.qr-glow { right: -58px; top: -52px; width: 240px; height: 240px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(120,190,255,.2) 0%, rgba(120,190,255,.07) 52%, transparent 72%); }
+.qr-label { font-family: 'Space Grotesk', sans-serif; font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(255,255,255,.9); font-weight: 700; }
+.qr-box { margin-top: 15px; width: 210px; background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+.qr-box svg path { fill: #08233d; }
+.qr-footer { margin-top: 15px; }
+.qr-cust-name { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: #fff; }
+.live-dot { background: #999; }
+.live-dot.on { background: #bbf7d0; animation: qosPulse 1.8s ease-in-out infinite; }
+.live-txt { font-size: 12px; color: rgba(255,255,255,.8); font-weight: 500; }
+#rewardBanners:empty, #stampCards:empty, #pointsRewards:empty { display: none; }
+#rewardBanners, #stampCards { display: flex; flex-direction: column; gap: 18px; }
+.reward-banner { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.4); border-radius: 18px; padding: 16px; }
+.reward-icon { width: 44px; height: 44px; border-radius: 13px; background: #34d399; color: #04243f; animation: qosPop .5s ease both; }
+.reward-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #fff; }
+.reward-sub { font-size: 12.5px; color: rgba(255,255,255,.7); margin-top: 2px; }
+.stamp-card { border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 18px 18px 16px; background: rgba(255,255,255,.03); }
+.stamp-card-header { margin-bottom: 14px; }
+.stamp-card-title { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; }
+.stamp-card-count { font-size: 13px; color: rgba(255,255,255,.8); font-weight: 700; }
+.stamp-grid { gap: 10px; }
+.stamp-slot { background: rgba(255,255,255,.05); }
+.stamp-slot .s-body { fill: rgba(255,255,255,.12); stroke: rgba(255,255,255,.45); }
+.stamp-slot .s-line { stroke: rgba(255,255,255,.45); }
+.stamp-slot.filled { background: #094582; box-shadow: 0 3px 8px rgba(9,69,130,.3); }
+.stamp-slot.filled .s-body { fill: #fff; stroke: #fff; }
+.stamp-slot.filled .s-line { stroke: #fff; }
+.points-section { border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 18px 18px 4px; background: rgba(255,255,255,.03); }
+.points-section-title { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; margin-bottom: 12px; }
+.pts-reward { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 14px; }
+.pts-reward:last-child { border-bottom: none; margin-bottom: 14px; }
+.pts-reward-name { color: #eaf2fb; font-weight: 600; }
+.pts-reward-cost { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.55); }
+.pts-reward-cost.ready { color: #34d399; }
+.activity-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+.act-row { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.act-row:last-child { border-bottom: none; }
+.act-label { font-size: 14px; font-weight: 600; color: #eaf2fb; }
+.act-tag { font-size: 13px; font-weight: 700; }
+.act-tag.earn { color: #7fd0ff; }
+.act-tag.redeem { color: #5fc4ff; }
+.act-empty { font-size: 13px; color: rgba(255,255,255,.35); padding: 8px 0; }
+.wallet-btns button { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13px; padding: 13px; border-radius: 13px; transition: background .15s; }
+.btn-google { border: none; background: #fff; color: #061d33; }
+.btn-google:hover { background: #eaf6ff; }
+.tip { font-size: 12px; color: rgba(255,255,255,.45); line-height: 1.5; }
+.tip strong { color: rgba(255,255,255,.7); }
+.card-photo { height: 260px; opacity: .3; -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
+  mask-image: linear-gradient(to bottom, transparent, #000); }
+.toast { background: #0a3e6c; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: .85rem; }
+
+/* ---------------- Add to Home Screen ---------------- */
+.page-join .install-bar { background: #0a2e50; }
+.install-bar { background: #0a3352; border-top: 1px solid rgba(95,196,255,.22); padding: 14px 18px; }
+.install-bar-icon { width: 38px; height: 38px; border-radius: 9px; background: #fff; padding: 3px; }
+.install-bar-title { font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #fff; }
+.install-bar-sub { font-size: 11.5px; color: rgba(255,255,255,.6); margin-top: 2px; }
+.install-bar-btn { background: #009fff; color: #04243f; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+  font-size: 12.5px; padding: 9px 15px; border-radius: 9px; }
+.install-bar-close { color: rgba(255,255,255,.45); }

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="{{theme:themeColor}}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="{{src:brand.logo}}">
+<link rel="apple-touch-icon" href="{{src:brand.logo}}">
+<title>My card — {{setting:shop_name}}</title>
+{{theme:fontsLink}}
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/theme.css">
+{{engine:head}}
+</head>
+<!-- Loyalty card page. The words and photos come from Admin -> Pages; the look from the theme (THEME). -->
+<body class="page-card theme-{{theme:name}}">
+<div class="screen">
+  <div class="card-header">
+    <img src="{{src:brand.logo}}" alt="" class="hdr-logo">
+    <div>
+      <div class="hdr-sub">{{card.greeting}}</div>
+      <div class="hdr-name" id="custName">Loading…</div>
+    </div>
+    <div class="hdr-brand">{{brand.name}}</div>
+  </div>
+
+  <div class="card-body">
+
+    <div class="qr-hero">
+      <div class="qr-glow"></div>
+      <div class="qr-inner">
+        <div class="qr-label">{{card.qrLabel}}</div>
+        <div class="qr-box"><div id="qr"></div></div>
+        <div class="qr-footer">
+          <span class="qr-cust-name" id="qrName"></span>
+          <span class="live-dot" id="liveDot"></span>
+          <span class="live-txt" id="liveTxt">connecting…</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="rewardBanners"></div>
+    <div id="stampCards"></div>
+    <div id="pointsRewards"></div>
+
+    <div class="activity">
+      <div class="activity-title">{{card.activityTitle}}</div>
+      <div id="activity"></div>
+    </div>
+
+    <div class="wallet-btns">
+      <button type="button" class="btn-apple" id="appleBtn">Add to Apple Wallet</button>
+      <button type="button" class="btn-google" id="googleBtn">Add to Google Wallet</button>
+    </div>
+
+    <div class="tip" id="homescreenTip">{{card.tip}}</div>
+
+  </div>
+  <div class="card-photo">{{img:card.photo|card-photo-img}}</div>
+</div>
+
+<div class="install-bar" id="installBar">
+  <img src="{{src:brand.logo}}" alt="" class="install-bar-icon">
+  <div class="install-bar-text">
+    <div class="install-bar-title">Add to Home Screen</div>
+    <div class="install-bar-sub" id="installSub">Keep your card one tap away</div>
+  </div>
+  <button type="button" class="install-bar-btn" id="installBtn">Add</button>
+  <button type="button" class="install-bar-close" id="installClose" aria-label="Dismiss">&#x2715;</button>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<template id="stampIcon">{{theme:stampIcon}}</template>
+<template id="rewardIcon">{{theme:rewardIcon}}</template>
+<script>window.CARD_TEXT = {{json:card}};</script>
+<script src="/lib/qrcode.js"></script>
+<script>
+const PREVIEW = !!window.__PREVIEW;
+const T = window.CARD_TEXT || {};
+const token = PREVIEW ? 'preview' : location.pathname.split('/').pop();
+const STAMP = document.getElementById('stampIcon').innerHTML;
+const REWARD_ICON = document.getElementById('rewardIcon').innerHTML;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+if (!PREVIEW) {
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = '/api/manifest/' + token;
+  document.head.appendChild(link);
+}
+
+(function drawQr() {
+  const qr = qrcode(0, 'M');
+  qr.addData(location.origin + '/card/' + token);
+  qr.make();
+  document.getElementById('qr').innerHTML = qr.createSvgTag({ scalable: true, margin: 0 });
+})();
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function render(d) {
+  if (d.name) {
+    document.getElementById('custName').textContent = d.name;
+    document.getElementById('qrName').textContent = d.name;
+  }
+
+  const stampRewards = (d.rewards || []).filter(r => r.type === 'stamp');
+  const pointsRewards = (d.rewards || []).filter(r => r.type !== 'stamp');
+  const pts = d.points || 0;
+
+  document.getElementById('rewardBanners').innerHTML = stampRewards
+    .filter(r => pts >= r.pointsCost)
+    .map(r => `<div class="reward-banner">
+      <div class="reward-icon">${REWARD_ICON}</div>
+      <div>
+        <div class="reward-title">${(T.readyTitle || '{reward} ready').replace('{reward}', esc(r.name))}</div>
+        <div class="reward-sub">${T.readySub || ''}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('stampCards').innerHTML = stampRewards.map(r => {
+    const slots = r.pointsCost;
+    const filled = Math.min(pts, slots);
+    const cells = Array.from({ length: slots }, (_, i) =>
+      `<div class="stamp-slot ${i < filled ? 'filled' : ''}">${STAMP}</div>`
+    ).join('');
+    return `<div class="stamp-card">
+      <div class="stamp-card-header">
+        <span class="stamp-card-title">${esc(r.name)}</span>
+        <span class="stamp-card-count">${filled} / ${slots}</span>
+      </div>
+      <div class="stamp-grid">${cells}</div>
+    </div>`;
+  }).join('');
+
+  const prEl = document.getElementById('pointsRewards');
+  prEl.innerHTML = pointsRewards.length === 0 ? '' : `<div class="points-section">
+      <div class="points-section-title">${T.pointsTitle || 'Points rewards'}</div>
+      ${pointsRewards.map(r => {
+        const ready = pts >= r.pointsCost;
+        return `<div class="pts-reward">
+          <span class="pts-reward-name">${esc(r.name)}${ready ? ' ✓' : ''}</span>
+          <span class="pts-reward-cost ${ready ? 'ready' : ''}">${r.pointsCost} pts</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  const acts = d.activity || [];
+  document.getElementById('activity').innerHTML = acts.length === 0
+    ? `<div class="act-empty">${T.emptyActivity || ''}</div>`
+    : acts.map(a => {
+        const isRedeem = a.points < 0 || a.type === 'redeem';
+        let tag, tagClass;
+        if (isRedeem) { tag = '★ Reward'; tagClass = 'redeem'; }
+        else if (a.type === 'earn' && !a.amountPence) { tag = `+${a.points} ${a.points === 1 ? 'stamp' : 'stamps'}`; tagClass = 'earn'; }
+        else { tag = `${a.points >= 0 ? '+' : ''}${a.points} pts`; tagClass = 'earn'; }
+        return `<div class="act-row">
+          <div style="flex:1"><div class="act-label">${esc(a.description || a.type)}</div></div>
+          <div class="act-tag ${tagClass}">${tag}</div>
+        </div>`;
+      }).join('');
+}
+
+// Admin -> Pages preview: a sample member, no live connection.
+const SAMPLE = {
+  name: 'Alex Morgan', points: 9,
+  rewards: [{ name: 'Free coffee', pointsCost: 9, type: 'stamp' }, { name: 'Pastry of the day', pointsCost: 250, type: 'points' }],
+  activity: [
+    { type: 'earn', description: 'Stamped: 1 coffee', points: 1, amountPence: 0 },
+    { type: 'earn', description: 'Stamped: 2 coffees', points: 2, amountPence: 0 },
+  ]
+};
+
+async function load() {
+  if (PREVIEW) { render(SAMPLE); return; }
+  const res = await fetch('/api/customer/' + token);
+  if (!res.ok) { document.getElementById('custName').textContent = 'Card not found'; return; }
+  try { localStorage.setItem('myCardToken', token); } catch (e) {}
+  render(await res.json());
+}
+
+function connect() {
+  const dot = document.getElementById('liveDot');
+  const txt = document.getElementById('liveTxt');
+  if (PREVIEW) { dot.classList.add('on'); txt.textContent = 'live'; return; }
+  const es = new EventSource('/api/events/' + token);
+  es.onopen = () => { dot.classList.add('on'); txt.textContent = 'live'; };
+  es.onmessage = e => render(JSON.parse(e.data));
+  es.onerror = () => { dot.classList.remove('on'); txt.textContent = 'reconnecting…'; };
+}
+
+async function wallet(platform) {
+  if (PREVIEW) return;
+  const btn = document.getElementById(platform + 'Btn');
+  btn.textContent = 'Loading…';
+  try {
+    const res = await fetch(`/api/wallet/${platform}/${token}`);
+    const d = await res.json();
+    if (res.status === 501) {
+      toast('Not configured yet — ask the shop to set up ' + (platform === 'apple' ? 'Apple' : 'Google') + ' Wallet.');
+    } else if (d.url) {
+      location.href = d.url;
+    } else if (d.error) {
+      toast(d.error);
+    }
+  } finally {
+    btn.textContent = platform === 'apple' ? 'Add to Apple Wallet' : 'Add to Google Wallet';
+  }
+}
+document.getElementById('appleBtn').onclick = () => wallet('apple');
+document.getElementById('googleBtn').onclick = () => wallet('google');
+
+(async () => {
+  if (PREVIEW) return;
+  const res = await fetch('/api/admin/wallet-status');
+  if (res.ok) {
+    const d = await res.json();
+    if (!d.googleConfigured) {
+      const btn = document.getElementById('googleBtn');
+      btn.style.opacity = '0.4';
+      btn.title = 'Google Wallet not configured';
+    }
+  }
+})();
+
+if (!PREVIEW && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+(function () {
+  const tip = document.getElementById('homescreenTip');
+  if (PREVIEW) return;
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    if (tip) tip.style.display = 'none';
+    return;
+  }
+  const bar = document.getElementById('installBar');
+  const btn = document.getElementById('installBtn');
+  const sub = document.getElementById('installSub');
+
+  const showBar = () => {
+    bar.classList.add('visible');
+    document.body.classList.add('install-bar-visible');
+    if (tip) tip.style.display = 'none';
+  };
+  const dismiss = () => {
+    bar.classList.remove('visible');
+    document.body.classList.remove('install-bar-visible');
+    try { sessionStorage.setItem('pwaHintDismissed', '1'); } catch (e) {}
+  };
+  document.getElementById('installClose').onclick = dismiss;
+
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    sub.textContent = 'Keep your card one tap away';
+    showBar();
+    btn.onclick = async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      const { outcome } = await deferred.userChoice;
+      deferred = null;
+      if (outcome === 'accepted') {
+        bar.classList.remove('visible');
+        document.body.classList.remove('install-bar-visible');
+      }
+    };
+  });
+
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    try { if (sessionStorage.getItem('pwaHintDismissed')) return; } catch (e) {}
+    sub.textContent = 'Tap Share → Add to Home Screen';
+    btn.textContent = 'Got it';
+    btn.onclick = dismiss;
+    showBar();
+  }
+}());
+
+load();
+connect();
+</script>
+</body>
+</html>

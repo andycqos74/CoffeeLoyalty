@@ -5,15 +5,31 @@ using System.Threading.Channels;
 using Microsoft.Data.Sqlite;
 
 var builder = WebApplication.CreateBuilder(args);
+// Photos uploaded from Admin -> Pages arrive as raw image bodies (already resized in the admin's browser).
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 12 * 1024 * 1024);
 var app = builder.Build();
+
+// ---------------------------------------------------------------------------
+// Theme: THEME=<folder in themes/> (default qosfc) or THEME_DIR=<a mounted theme folder>. One theme per container.
+// ---------------------------------------------------------------------------
+var theme = Theme.Load(builder.Configuration);
+app.Logger.LogInformation("Theme: {name} ({label})", theme.Name, theme.Label);
+var templatesDir = Path.Combine(AppContext.BaseDirectory, "templates");
+GoogleWalletService.BackgroundColor = theme.Colours.Wallet;
 
 // ---------------------------------------------------------------------------
 // Database
 // ---------------------------------------------------------------------------
-var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
+// DATA_DIR overrides where the database and uploaded photos live (default: data/ next to the app = /app/data).
+var dataDir = string.IsNullOrWhiteSpace(builder.Configuration["DATA_DIR"]) ? Path.Combine(AppContext.BaseDirectory, "data") : builder.Configuration["DATA_DIR"]!;
 Directory.CreateDirectory(dataDir);
 var dbPath = Path.Combine(dataDir, "loyalty.db");
 var connString = $"Data Source={dbPath}";
+// Photos uploaded in Admin -> Pages, served at /media/<file>
+var mediaDir = Path.Combine(dataDir, "media");
+Directory.CreateDirectory(mediaDir);
+// Animated photos (see Animations.cs)
+var animations = new Animations(Open, builder.Configuration, app.Logger);
 
 SqliteConnection Open()
 {
@@ -54,8 +70,6 @@ void InitDb()
             value TEXT NOT NULL
         );
         INSERT OR IGNORE INTO settings (key, value) VALUES
-            ('shop_name', 'Queen of the South Café'),
-            ('wallet_program_name', 'QOSFC Loyalty'),
             ('points_per_pound', '10'),
             ('staff_pin', '1234'),
             ('admin_pin', '9999'),
@@ -64,6 +78,21 @@ void InitDb()
             ('public_base_url', '');
         """;
     cmd.ExecuteNonQuery();
+
+    // The theme's starting settings (shop name, wallet programme name, ...). Saved values are never overwritten.
+    var themeSettings = new Dictionary<string, string>(theme.Settings);
+    themeSettings.TryAdd("shop_name", theme.Label);
+    themeSettings.TryAdd("wallet_program_name", $"{theme.Label} Loyalty");
+    foreach (var (key, value) in themeSettings)
+    {
+        var s = c.CreateCommand();
+        s.CommandText = "INSERT OR IGNORE INTO settings (key, value) VALUES ($k, $v)";
+        s.Parameters.AddWithValue("$k", key);
+        s.Parameters.AddWithValue("$v", value);
+        s.ExecuteNonQuery();
+    }
+    PageContent.InitTable(c);
+    animations.InitTable(c);
 
     // Schema migrations — safe to re-run; SQLite throws if column already exists, which we ignore
     foreach (var ddl in new[]
@@ -989,31 +1018,212 @@ app.MapPut("/api/admin/settings", (JsonElement body, HttpRequest req) =>
 // ---------------------------------------------------------------------------
 // Static pages
 // ---------------------------------------------------------------------------
+// Uploaded photos (/media), the theme's own files (theme.css, logo, /img/...), then the engine's wwwroot.
+var mediaFiles = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(mediaDir);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = mediaFiles,
+    RequestPath = "/media",
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable"; // names are never reused
+        ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    }
+});
+if (Directory.Exists(theme.PublicDir))
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(theme.PublicDir) });
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// ---------------------------------------------------------------------------
+// Customer pages: templates/*.html filled with the theme and the editable words and photos (Admin -> Pages)
+// ---------------------------------------------------------------------------
+string RenderPage(string page, IReadOnlyDictionary<string, string>? draft = null, bool preview = false)
+{
+    var template = File.ReadAllText(Path.Combine(templatesDir, $"{page}.html"));
+    using var c = Open();
+    var values = PageContent.Values(c, theme, draft);
+    return PageRenderer.Render(template, theme, values, key => GetSetting(c, key), src => animations.Lookup(c, src), preview);
+}
+IResult Html(string html) => Results.Content(html, "text/html; charset=utf-8");
+
+app.MapGet("/join.html", () => Html(RenderPage("join")));
 // /card/{token} serves the customer card page (token read client-side from URL)
-app.MapGet("/card/{token}", (IWebHostEnvironment env) =>
-    Results.File(Path.Combine(env.WebRootPath, "card.html"), "text/html"));
+app.MapGet("/card/{token}", () => Html(RenderPage("card")));
+
+string CurrentLogo()
+{
+    using var c = Open();
+    var v = PageContent.Values(c, theme)["brand.logo"];
+    return string.IsNullOrEmpty(v) ? "/logo.png" : v;
+}
+string? LocalFileFor(string url)
+{
+    if (!PageContent.IsImageUrl(url)) return null;
+    var rel = url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+    foreach (var (root, prefix) in new[] { (mediaDir, "media" + Path.DirectorySeparatorChar), (theme.PublicDir, ""), (app.Environment.WebRootPath, "") })
+    {
+        if (root is null || !rel.StartsWith(prefix)) continue;
+        var full = Path.GetFullPath(Path.Combine(root, rel[prefix.Length..]));
+        if (full.StartsWith(Path.GetFullPath(root)) && File.Exists(full)) return full;
+    }
+    return null;
+}
+string ImageType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+{
+    ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp", ".svg" => "image/svg+xml", ".gif" => "image/gif",
+    _ => "application/octet-stream"
+};
+
+// The current logo (uploaded or the theme's), for the till, admin, home-screen icon and the Google Wallet pass.
+app.MapGet("/brand-logo", () =>
+{
+    var file = LocalFileFor(CurrentLogo());
+    return file is null ? Results.NotFound() : Results.File(file, ImageType(file));
+});
+
+object Manifest(string name, string shortName, string startUrl)
+{
+    var logo = CurrentLogo();
+    var type = ImageType(logo);
+    return new
+    {
+        name, short_name = shortName, start_url = startUrl, display = "standalone",
+        background_color = theme.Colours.Background, theme_color = theme.Colours.ThemeColor,
+        icons = type == "image/svg+xml"
+            ? new object[] { new { src = logo, sizes = "any", type, purpose = "any" } }
+            : new object[] { new { src = logo, sizes = "192x192", type, purpose = "any" }, new { src = logo, sizes = "512x512", type, purpose = "any" } }
+    };
+}
+string ShopName() { using var c = Open(); return GetSetting(c, "shop_name"); }
+
+app.MapGet("/manifest.json", () =>
+    Results.Content(JsonSerializer.Serialize(Manifest($"{ShopName()} Loyalty", "Loyalty", "/")), "application/manifest+json"));
 
 // Dynamic manifest for each customer's card (start_url must match the token URL for PWA install)
 app.MapGet("/api/manifest/{token}", (string token) =>
+    Results.Content(JsonSerializer.Serialize(Manifest($"{ShopName()} Loyalty Card", "My Card", $"/card/{token}")), "application/manifest+json"));
+
+// Public: theme name and colours (till and admin use these for their header)
+app.MapGet("/api/theme", () => Results.Ok(new { name = theme.Name, label = theme.Label, shopName = ShopName(), colours = theme.Colours }));
+
+// The analysis file an animated photo's player loads (light positions)
+app.MapGet("/anim/{id:long}.json", (long id) =>
 {
-    var manifest = System.Text.Json.JsonSerializer.Serialize(new
+    var json = animations.AnalysisFile(id);
+    return json is null ? Results.NotFound() : Results.Content(json, "application/json");
+});
+
+// ---------------------------------------------------------------------------
+// Admin -> Pages: edit the words and photos on the customer pages, upload photos, animate photos
+// ---------------------------------------------------------------------------
+app.MapGet("/api/admin/pages", (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    using var c = Open();
+    var saved = PageContent.Saved(c);
+    var values = PageContent.Values(c, theme);
+    return Results.Ok(new
     {
-        name = "QOSFC Loyalty Card",
-        short_name = "My Card",
-        start_url = $"/card/{token}",
-        display = "standalone",
-        background_color = "#061d33",
-        theme_color = "#094582",
-        icons = new[]
+        theme = new { name = theme.Name, label = theme.Label },
+        pages = PageContent.Pages.Select(p => new { key = p, label = PageContent.PageLabels[p] }),
+        fields = PageContent.Fields.Select(f => new
         {
-            new { src = "/logo.png", sizes = "192x192", type = "image/png", purpose = "any" },
-            new { src = "/logo.png", sizes = "512x512", type = "image/png", purpose = "any" }
-        }
+            key = f.Key, page = f.Page, label = f.Label, type = f.Type.ToString().ToLowerInvariant(), help = f.Help,
+            value = values[f.Key], @default = theme.Content.GetValueOrDefault(f.Key, ""), edited = saved.ContainsKey(f.Key)
+        })
     });
-    return Results.Content(manifest, "application/manifest+json");
+});
+
+app.MapPut("/api/admin/pages", (JsonElement body, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    try
+    {
+        using var c = Open();
+        PageContent.Save(c, body.TryGetProperty("values", out var v) ? v : default);
+        return Results.Ok(new { ok = true });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// Renders a page with unsaved edits for the editor's live preview (join or card; the privacy policy opens on join).
+app.MapPost("/api/admin/pages/preview", (JsonElement body, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var page = body.TryGetProperty("page", out var p) ? p.GetString() : "join";
+    if (page is not ("join" or "card")) page = "join";
+    var draft = PageContent.Draft(body.TryGetProperty("values", out var v) ? v : default, theme);
+    return Html(RenderPage(page!, draft, preview: true));
+});
+
+// Photo upload: the raw image as the request body (JPEG, PNG or WebP). Returns its address.
+app.MapPost("/api/admin/media", async (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    using var ms = new MemoryStream();
+    await req.Body.CopyToAsync(ms);
+    var bytes = ms.ToArray();
+    if (bytes.Length > 10 * 1024 * 1024) return Results.BadRequest(new { error = "That photo is too big (10 MB at most)." });
+    string? ext = null;
+    if (bytes.Length > 12 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) ext = "jpg";
+    else if (bytes.Length > 12 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) ext = "png";
+    else if (bytes.Length > 12 && System.Text.Encoding.ASCII.GetString(bytes, 0, 4) == "RIFF" && System.Text.Encoding.ASCII.GetString(bytes, 8, 4) == "WEBP") ext = "webp";
+    if (ext is null) return Results.BadRequest(new { error = "Upload a JPEG, PNG or WebP photo." });
+    var name = $"{DateTime.UtcNow:yyyyMMdd}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(6)).ToLowerInvariant()}.{ext}";
+    await File.WriteAllBytesAsync(Path.Combine(mediaDir, name), bytes);
+    return Results.Ok(new { url = $"/media/{name}" });
+});
+
+// The photo library: uploads (newest first), then the theme's own images.
+app.MapGet("/api/admin/media", (HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var exts = new[] { ".jpg", ".jpeg", ".png", ".webp", ".svg" };
+    var uploads = new DirectoryInfo(mediaDir).GetFiles().Where(f => exts.Contains(f.Extension.ToLowerInvariant()))
+        .OrderByDescending(f => f.CreationTimeUtc).Select(f => new { url = $"/media/{f.Name}", source = "upload" }).ToList();
+    if (Directory.Exists(theme.PublicDir))
+        uploads.AddRange(Directory.GetFiles(theme.PublicDir, "*", SearchOption.AllDirectories)
+            .Where(f => exts.Contains(Path.GetExtension(f).ToLowerInvariant()))
+            .Select(f => "/" + Path.GetRelativePath(theme.PublicDir, f).Replace(Path.DirectorySeparatorChar, '/'))
+            .Where(PageContent.IsImageUrl).OrderBy(u => u).Select(u => new { url = u, source = "theme" }));
+    return Results.Ok(uploads);
+});
+
+IResult AnimResult(Func<object?> f)
+{
+    try { return Results.Ok(f()); }
+    catch (AnimationError ex) { return Results.Json(new { error = ex.Message }, statusCode: ex.Status); }
+}
+System.Text.Json.Nodes.JsonNode? Node(JsonElement body) => System.Text.Json.Nodes.JsonNode.Parse(body.GetRawText());
+string Str(System.Text.Json.Nodes.JsonNode? n) => n?.GetValueKind() == JsonValueKind.String ? n.GetValue<string>() : "";
+
+app.MapGet("/api/admin/animations", (HttpRequest req, string src) =>
+    !PinOk(req, "admin_pin") ? Unauthorized() : AnimResult(() => animations.Panel(src)));
+app.MapPost("/api/admin/animations/analysis", (JsonElement body, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var node = Node(body);
+    return AnimResult(() => animations.StoreAnalysis(Str(node?["src"]), node?["analysis"]));
+});
+app.MapPut("/api/admin/animations", (JsonElement body, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var node = Node(body);
+    return AnimResult(() => new { ok = true, config = animations.Save(Str(node?["src"]), node?["config"]) });
+});
+// 30 AI requests an hour keeps a stuck button from running up the API bill.
+var aiHits = new ConcurrentDictionary<long, int>();
+app.MapPost("/api/admin/animations/suggest", async (JsonElement body, HttpRequest req) =>
+{
+    if (!PinOk(req, "admin_pin")) return Unauthorized();
+    var hour = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 3600;
+    foreach (var k in aiHits.Keys.Where(k => k != hour)) aiHits.TryRemove(k, out _);
+    if (aiHits.AddOrUpdate(hour, 1, (_, n) => n + 1) > 30)
+        return Results.Json(new { error = "That’s a lot of AI requests this hour. Try again later, or use the presets." }, statusCode: 429);
+    var node = Node(body);
+    try { return Results.Ok(await animations.Suggest(Str(node?["src"]), Str(node?["prompt"]), node?["config"], Str(node?["image"]))); }
+    catch (AnimationError ex) { return Results.Json(new { error = ex.Message }, statusCode: ex.Status); }
 });
 
 app.MapGet("/", () => Results.Redirect("/join.html"));
