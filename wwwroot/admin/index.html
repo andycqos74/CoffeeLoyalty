@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Queen of the South Café — Admin</title>
+<title>Loyalty — Admin</title>
 <style>
   :root { --brown:#094582; --cream:#f0f4fa; --accent:#1a6abf; --green:#2e8b57; --red:#c0392b; }
   * { box-sizing:border-box; }
@@ -16,6 +16,7 @@
                font-size:.9rem; border-bottom:3px solid transparent; }
   nav button.on { color:#fff; border-bottom-color:var(--accent); font-weight:600; }
   main { padding:20px; max-width:960px; margin:0 auto; }
+  body.wide main { max-width:1280px; }
   .hidden { display:none !important; }
   table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
   th, td { text-align:left; padding:10px 12px; font-size:.88rem; border-bottom:1px solid #d0ddf0; }
@@ -57,8 +58,8 @@
 <body>
 <header>
   <h1 style="display:flex;align-items:center;gap:10px">
-    <img src="/logo.jpg" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:contain">
-    Queen of the South Café — Admin
+    <img src="/brand-logo" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:contain;background:#fff">
+    <span id="adminTitle">Admin</span>
   </h1>
   <button class="small hidden" id="lockBtn">Lock</button>
 </header>
@@ -67,6 +68,7 @@
   <button data-tab="customers">Customers</button>
   <button data-tab="activity">Activity</button>
   <button data-tab="rewards">Rewards</button>
+  <button data-tab="pages">Pages</button>
   <button data-tab="settings">Settings</button>
 </nav>
 <main>
@@ -202,6 +204,9 @@
       <tbody id="rwBody"></tbody></table></div>
   </div>
 
+  <!-- Pages: edit the words and photos on the customer pages (admin/pages.js) -->
+  <div id="pages" class="hidden"></div>
+
   <div id="settings" class="hidden">
     <div class="panel">
       <h2>Programme settings</h2>
@@ -260,7 +265,8 @@ async function api(path, opts = {}) {
 
 function fmtMoney(p) { return '£' + (p / 100).toFixed(2); }
 function showTab(tab) {
-  for (const t of ['dashboard','customers','activity','detail','rewards','settings']) $(t).classList.add('hidden');
+  for (const t of ['dashboard','customers','activity','detail','rewards','pages','settings']) $(t).classList.add('hidden');
+  document.body.classList.toggle('wide', tab === 'pages');
   $(tab).classList.remove('hidden');
   for (const b of document.querySelectorAll('nav button'))
     b.classList.toggle('on', b.dataset.tab === tab);
@@ -269,6 +275,7 @@ function showTab(tab) {
   if (tab === 'activity') loadActivity();
   if (tab === 'rewards') loadRewards();
   if (tab === 'settings') loadSettings();
+  if (tab === 'pages') PagesEditor.open($('pages'));
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
@@ -606,6 +613,15 @@ if (pinVal) {
   api('/api/admin/login', { method:'POST', body: JSON.stringify({ pin: pinVal }) })
     .then(boot).catch(() => {});
 }
+
+fetch('/api/theme').then(r => r.json()).then(t => {
+  $('adminTitle').textContent = `${t.shopName} — Admin`;
+  document.title = `${t.shopName} — Admin`;
+}).catch(() => {});
 </script>
+<link rel="stylesheet" href="/admin/pages.css">
+<script src="/lib/animated-image.js"></script>
+<script src="/admin/anim-analyse.js"></script>
+<script src="/admin/pages.js"></script>
 </body>
 </html>

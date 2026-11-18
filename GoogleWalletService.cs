@@ -93,6 +93,10 @@ public class GoogleWalletService
         return JObject.Parse(body)["access_token"]!.Value<string>()!;
     }
 
+    // Set from the theme at start-up: the pass background and where the logo is served (PNG or JPEG for Google).
+    public static string BackgroundColor { get; set; } = "#094582";
+    public static string LogoPath { get; set; } = "/brand-logo";
+
     private string ClassId => $"{_issuerId}.{ClassSuffix}";
     private string ObjectId(string customerToken) => $"{_issuerId}.loyalty_{customerToken}";
 
@@ -112,11 +116,11 @@ public class GoogleWalletService
             id = classId,
             issuerName,
             programName,
-            programLogo = new { sourceUri = new { uri = $"{baseUrl}/logo.jpg" }, contentDescription = new { defaultValue = new { language = "en-GB", value = "Logo" } } },
+            programLogo = new { sourceUri = new { uri = $"{baseUrl}{LogoPath}" }, contentDescription = new { defaultValue = new { language = "en-GB", value = "Logo" } } },
             rewardsTierLabel = "Points",
             rewardsTier = "Member",
             reviewStatus = "UNDER_REVIEW",
-            hexBackgroundColor = "#094582"
+            hexBackgroundColor = BackgroundColor
             // heroImage intentionally omitted — it was rendering at QR-code scale on the pass
         };
 

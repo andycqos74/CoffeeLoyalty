@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="{{theme:themeColor}}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="{{src:brand.logo}}">
+<link rel="apple-touch-icon" href="{{src:brand.logo}}">
+<title>Join — {{setting:shop_name}}</title>
+{{theme:fontsLink}}
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/theme.css">
+{{engine:head}}
+</head>
+<!-- Join page. The words and photos come from Admin -> Pages; the look from the theme (THEME). -->
+<body class="page-join theme-{{theme:name}}">
+<div class="screen">
+  <img src="{{src:brand.logo}}" alt="" class="watermark">
+  <div class="content">
+
+    <div class="brand">
+      <img src="{{src:brand.logo}}" alt="" class="brand-logo">
+      <span class="brand-name">{{brand.name}}</span>
+    </div>
+
+    <div class="hero">
+      <div class="pill">{{join.kicker}}</div>
+      <h1 class="headline">{{join.headline}}</h1>
+      <p class="subcopy">{{join.subcopy}}</p>
+    </div>
+
+    <div class="photo-block">
+      <div class="photo-bg">
+        {{img:join.photo|photo}}
+        <div class="photo-tint tint-1"></div>
+        <div class="photo-tint tint-2"></div>
+        <div class="photo-tint tint-3"></div>
+      </div>
+      <div class="photo-fade"></div>
+      <div class="inputs">
+        <div class="back-banner" id="welcomeBack">
+          <p>Welcome back, <b id="backName"></b>! You already have a card on this device.</p>
+          <button type="button" class="btn-back" id="openCardBtn">Open my loyalty card</button>
+        </div>
+        <label class="field">
+          <span class="field-label">{{join.nameLabel}}</span>
+          <input id="name" type="text" placeholder="e.g. Alex Morgan" autocomplete="name">
+        </label>
+        <label class="field">
+          <span class="field-label">{{join.emailLabel}} <span class="opt">(optional)</span></span>
+          <input id="email" type="email" placeholder="you@email.com" autocomplete="email">
+        </label>
+      </div>
+    </div>
+
+    <div class="cta">
+      <label class="consent-row">
+        <input type="checkbox" id="marketingOk">
+        <span class="consent-label">{{join.consent}}</span>
+      </label>
+      <div class="err" id="err" role="alert"></div>
+      <button type="button" class="btn-primary" id="joinBtn">{{join.button}}</button>
+      <button type="button" class="btn-secondary" id="alreadyBtn">
+        <span>{{join.already}}</span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+      <button type="button" class="privacy-link" id="privacyLink">{{privacy.title}}</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="privacyModal">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="privacyTitle">{{privacy.title}}</span>
+      <button type="button" class="modal-close" id="privacyClose" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="modal-body">{{privacy.body}}</div>
+  </div>
+</div>
+
+<div class="install-bar" id="installBar">
+  <img src="{{src:brand.logo}}" alt="" class="install-bar-icon">
+  <div class="install-bar-text">
+    <div class="install-bar-title">Add to Home Screen</div>
+    <div class="install-bar-sub" id="installSub">Install for quick access</div>
+  </div>
+  <button type="button" class="install-bar-btn" id="installBtn">Add</button>
+  <button type="button" class="install-bar-close" id="installClose" aria-label="Dismiss">&#x2715;</button>
+</div>
+
+<script>
+const PREVIEW = !!window.__PREVIEW;
+
+(async () => {
+  if (PREVIEW) return;
+  let saved = null;
+  try { saved = localStorage.getItem('myCardToken'); } catch (e) {}
+  if (!saved) return;
+  const res = await fetch('/api/customer/' + saved);
+  if (!res.ok) { try { localStorage.removeItem('myCardToken'); } catch (e) {} return; }
+  const d = await res.json();
+  document.getElementById('backName').textContent = d.name;
+  document.getElementById('openCardBtn').onclick = () => location.href = '/card/' + saved;
+  document.getElementById('welcomeBack').style.display = 'block';
+})();
+
+document.getElementById('joinBtn').addEventListener('click', async () => {
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const err = document.getElementById('err');
+  err.textContent = '';
+  if (!name) { err.textContent = 'Please enter your name.'; return; }
+  if (PREVIEW) { err.textContent = 'Preview: joining is switched off here.'; return; }
+  const marketingOk = document.getElementById('marketingOk').checked;
+  const res = await fetch('/api/join', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, marketingOk })
+  });
+  const data = await res.json();
+  if (!res.ok) { err.textContent = data.error || 'Something went wrong.'; return; }
+  try { localStorage.setItem('myCardToken', data.token); } catch (e) {}
+  location.href = data.cardUrl;
+});
+
+document.getElementById('alreadyBtn').addEventListener('click', () => {
+  let saved = null;
+  try { saved = localStorage.getItem('myCardToken'); } catch (e) {}
+  if (saved && !PREVIEW) { location.href = '/card/' + saved; }
+  else { document.getElementById('err').textContent = 'No saved card on this device — join below.'; }
+});
+
+const privacyModal = document.getElementById('privacyModal');
+document.getElementById('privacyLink').onclick = () => privacyModal.classList.add('open');
+document.getElementById('privacyClose').onclick = () => privacyModal.classList.remove('open');
+privacyModal.addEventListener('click', e => { if (e.target === privacyModal) privacyModal.classList.remove('open'); });
+
+if (!PREVIEW && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+(function () {
+  if (PREVIEW || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) return;
+  const bar = document.getElementById('installBar');
+  const btn = document.getElementById('installBtn');
+  const sub = document.getElementById('installSub');
+  const dismiss = () => {
+    bar.classList.remove('visible');
+    try { sessionStorage.setItem('pwaHintDismissed', '1'); } catch (e) {}
+  };
+  document.getElementById('installClose').onclick = dismiss;
+
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    sub.textContent = 'Install for one-tap access to your card';
+    bar.classList.add('visible');
+    btn.onclick = async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      const { outcome } = await deferred.userChoice;
+      deferred = null;
+      if (outcome === 'accepted') bar.classList.remove('visible');
+    };
+  });
+
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    try { if (sessionStorage.getItem('pwaHintDismissed')) return; } catch (e) {}
+    sub.textContent = 'Tap Share → Add to Home Screen';
+    btn.textContent = 'Got it';
+    btn.onclick = dismiss;
+    bar.classList.add('visible');
+  }
+}());
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  // Queen of the South Café: the original navy/blue design (design handoff "Option 2, dark/royal").
+  "name": "qosfc",
+  "label": "Queen of the South Café",
+  "colours": { "themeColor": "#094582", "background": "#052038", "wallet": "#094582" },
+  "fontsUrl": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap",
+  "stampIcon": "<svg viewBox='0 0 24 24' width='26' height='26' fill='none' aria-hidden='true'><path class='s-body' d='M7 3h10l-1.5 7.5Q14 14 12 14q-2 0-3.5-3.5Z' stroke-width='1.2' stroke-linejoin='round'/><path class='s-line' d='M7 5.5H4.5a2 2 0 0 0 0 4H7M17 5.5h2.5a2 2 0 0 0 0 4H17' stroke-width='1.2' stroke-linecap='round'/><path class='s-line' d='M12 14v4' stroke-width='1.2' stroke-linecap='round'/><path class='s-line' d='M9 21h6' stroke-width='1.5' stroke-linecap='round'/></svg>",
+  "rewardIcon": "<svg viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='9'/><path d='M12 8.6 15.23 10.95 14 14.75 10 14.75 8.77 10.95Z' fill='currentColor' stroke='none'/><path d='M12 8.6V3.4M15.23 10.95 20.18 9.34M14 14.75 17.06 18.96M10 14.75 6.94 18.96M8.77 10.95 3.82 9.34'/></svg>",
+  "settings": {
+    "shop_name": "Queen of the South Café",
+    "wallet_program_name": "QOSFC Loyalty"
+  },
+  "content": {
+    "brand.name": "Queen of the South",
+    "brand.logo": "/logo.png",
+
+    "join.kicker": "Loyalty club",
+    "join.headline": "Coffee\nfit for\n[royalty.]",
+    "join.subcopy": "Collect a stamp with every cup. Fill your card and the next one's free — no app, no fuss.",
+    "join.photo": "/img/latte.png",
+    "join.nameLabel": "Your name",
+    "join.emailLabel": "Email",
+    "join.consent": "I'd like to receive news and special offers by email from Queen of the South Café.",
+    "join.button": "Get my loyalty card",
+    "join.already": "Already joined? Open my card",
+
+    "card.greeting": "Welcome back",
+    "card.qrLabel": "Scan to earn & redeem",
+    "card.readyTitle": "{reward} ready",
+    "card.readySub": "Card complete — scan above to claim it.",
+    "card.pointsTitle": "Points rewards",
+    "card.activityTitle": "Recent activity",
+    "card.emptyActivity": "No activity yet — show your QR at the till!",
+    "card.tip": "Tip: use **Add to Home Screen** to keep your card one tap away.",
+    "card.photo": "",
+
+    "privacy.title": "Privacy Policy",
+    "privacy.body": "## Who we are\nQueen of the South Café is the data controller for information collected through this loyalty programme.\n\n## What we collect\nWe collect your name, email address (optional), and a record of stamps and rewards earned through our loyalty scheme.\n\n## How we use it\nYour information is used solely to operate your loyalty card — tracking stamps, notifying you of rewards, and letting you access your card on any device. If you opt in, we may also send you news and special offers by email.\n\n## Marketing emails\nWe will only send marketing emails if you tick the opt-in box when signing up. You can withdraw consent at any time by contacting us at the address below.\n\n## How long we keep it\nWe retain your data for as long as your loyalty account is active. You can request deletion at any time.\n\n## Your rights\nUnder UK GDPR you have the right to access, correct, or delete your personal data, and to object to or restrict how we use it. To exercise any of these rights, or to withdraw marketing consent, please contact us at hello@queensofthecafe.co.uk.\n\n## Sharing\nWe do not sell or share your personal data with third parties for their own marketing purposes."
+  }
+}
